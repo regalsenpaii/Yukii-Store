@@ -16,13 +16,20 @@ export default async function handler(req, res) {
         const owner = "egasenpai";
         const repo = "yuki-regal";
 
+        if (!token) {
+            return res.status(500).json({ error: 'Token REGAL_GITHUB_TOKEN tidak ditemukan di Environment Variables Vercel.' });
+        }
+
         // Kirim langsung dari Vercel ke GitHub memakai token rahasia
         const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${fileName}`, {
             method: 'PUT',
             headers: {
-                "Authorization": `token ${token}`,
+                // Menggunakan Bearer agar mendukung Fine-grained token & Classic token terbaru
+                "Authorization": `Bearer ${token}`, 
                 "Accept": "application/vnd.github.v3+json",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                // WAJIB disertakan untuk menghindari error 403 dari GitHub API
+                "User-Agent": "Vercel-Serverless-Upload-Proxy" 
             },
             body: JSON.stringify({
                 message: `Upload otomatis via Web API`,
@@ -30,7 +37,10 @@ export default async function handler(req, res) {
             })
         });
 
-        if (!response.ok) return res.status(500).json({ error: 'Gagal ke GitHub' });
+        if (!response.ok) {
+            const errorText = await response.text();
+            return res.status(500).json({ error: `Gagal ke GitHub: ${response.status} - ${errorText}` });
+        }
 
         return res.status(200).json({ success: true });
     } catch (error) {
