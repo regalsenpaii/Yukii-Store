@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-    // Beri izin CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -10,16 +9,11 @@ export default async function handler(req, res) {
     try {
         const { fileName, base64Content } = req.body;
         
-        // AMBIL TOKEN DARI SISTEM INTERNAL VERCEL (Pastikan sudah di-set di Environment Variables)
-        const token = process.env.REGAL_GITHUB_TOKEN; 
-        const owner = "egasenpai";
-        const repo = "yuki-regal";
+        // Data akun dan repo yang dipakai sekarang
+        const token = process.env.REGAL_GITHUB_TOKEN; // Pastikan ini di-set di Vercel
+        const owner = "regalsenpaii";
+        const repo = "Yukii-store";
 
-        if (!token) {
-            return res.status(500).json({ error: 'Token GitHub belum diatur di Vercel.' });
-        }
-
-        // Kirim ke GitHub
         const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${fileName}`, {
             method: 'PUT',
             headers: {
@@ -29,25 +23,17 @@ export default async function handler(req, res) {
                 "User-Agent": "YukiStore-Upload-Proxy"
             },
             body: JSON.stringify({
-                message: `Upload otomatis via Web API: ${fileName}`,
+                message: `Upload bukti: ${fileName}`,
                 content: base64Content
             })
         });
 
-        if (!response.ok) {
-            const errData = await response.json();
-            return res.status(500).json({ error: 'Gagal ke GitHub: ' + JSON.stringify(errData) });
-        }
-
-        // URL domain kamu tanpa double slash
-        const domain = "https://yuki-regal.vercel.app";
-        const fileUrl = `${domain}/${fileName}`;
+        if (!response.ok) return res.status(500).json({ error: 'Gagal ke GitHub' });
 
         return res.status(200).json({ 
             success: true, 
-            download_url: fileUrl 
+            download_url: `https://yukii-store.vercel.app/${fileName}` 
         });
-
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
