@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         // Data akun dan repo yang dipakai sekarang
         const token = process.env.REGAL_GITHUB_TOKEN; // Pastikan ini di-set di Vercel
         const owner = "regalsenpaii";
-        const repo = "Yukii-store";
+        const repo = "Yuki-san";
 
         const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${fileName}`, {
             method: 'PUT',
