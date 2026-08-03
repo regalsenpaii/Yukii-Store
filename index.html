@@ -56,6 +56,7 @@
         </div>
     </div>
 
+    <!-- DESKTOP SIDEBAR -->
     <aside id="sidebar">
         <div class="sidebar-brand">
             <div class="flex items-center gap-3">
@@ -89,14 +90,7 @@
             </a>
         </nav>
         <div class="sidebar-footer">
-            <div class="uptime-card">
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="status-pulse"></span>
-                    <span class="text-[11px] font-semibold text-emerald-700">Server Uptime</span>
-                </div>
-                <p class="text-xl font-bold text-emerald-600">99.9%</p>
-                <p class="text-[10px] text-emerald-500 mt-0.5">Semua sistem berjalan lancar</p>
-            </div>
+            <!-- THEME TOGGLE (di atas uptime) -->
             <div class="theme-toggle-wrap">
                 <span class="theme-toggle-label">Terang</span>
                 <label class="theme-toggle">
@@ -105,24 +99,96 @@
                 </label>
                 <span class="theme-toggle-label">Gelap</span>
             </div>
+    
+            <!-- UPTIME CARD -->
+            <div class="uptime-card">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="status-pulse"></span>
+                    <span class="text-[11px] font-semibold text-emerald-700">Server Uptime</span>
+                </div>
+                <p class="text-xl font-bold text-emerald-600">99.9%</p>
+                <p class="text-[10px] text-emerald-500 mt-0.5">Semua sistem berjalan lancar</p>
+            </div>
         </div>
     </aside>
 
-    <div id="mobile-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden lg:hidden"></div>
+    <!-- MOBILE OVERLAY BACKDROP -->
+    <div id="mobile-overlay" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md z-40 lg:hidden"></div>
 
-    <div class="mobile-header">
+    <!-- MOBILE HEADER FIXED -->
+    <div class="mobile-header fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b border-slate-100/80 px-4 flex items-center justify-between z-30 lg:hidden">
         <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-400 flex items-center justify-center">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-400 flex items-center justify-center shadow-md shadow-blue-500/20">
                 <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
             </div>
             <span class="font-bold text-[var(--text-primary)] text-sm">YUKI STORE</span>
         </div>
-        <button id="menu-toggle" class="p-2 rounded-xl hover:bg-slate-100 transition-colors">
-            <i data-lucide="menu" class="w-5 h-5 text-slate-600"></i>
+        <!-- HAMBURGER 3 GARIS → X -->
+        <button id="menu-toggle" class="hamburger p-2.5 rounded-xl hover:bg-slate-100/80 active:bg-slate-200/60 transition-colors focus:outline-none" aria-label="Toggle Navigation">
+            <span></span>
+            <span></span>
+            <span></span>
         </button>
     </div>
 
-    <main id="main-content">
+    <!-- MOBILE SIDEBAR DRAWER (SLIDE FROM RIGHT) -->
+    <aside id="mobile-sidebar-drawer" class="fixed top-0 right-0 bottom-0 w-[285px] bg-[var(--bg-card,#ffffff)] z-50 flex flex-col justify-between p-5 shadow-2xl lg:hidden">
+        <div>
+            <!-- Header Drawer -->
+            <div class="flex items-center justify-between pb-5 border-b border-[var(--border-color,#f1f5f9)]">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-400 flex items-center justify-center shadow-md shadow-blue-500/20">
+                        <i data-lucide="sparkles" class="w-4.5 h-4.5 text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-[var(--text-primary,#0f172a)] text-sm tracking-wide">YUKI STORE</h2>
+                        <p class="text-[10px] text-[var(--text-muted,#94a3b8)] font-semibold tracking-wider">DASHBOARD v1.0</p>
+                    </div>
+                </div>
+                <button id="close-drawer" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="mt-6 flex flex-col gap-1.5">
+                <a href="index.html" class="flex items-center gap-3 px-4 py-3 text-blue-600 bg-blue-50/80 rounded-xl font-semibold text-sm transition-all shadow-sm">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="./pages/pterodactyl.html" class="flex items-center gap-3 px-4 py-3 text-[var(--text-secondary,#475569)] hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-all text-sm font-medium">
+                    <i data-lucide="server" class="w-5 h-5"></i>
+                    <span>Panel Pterodactyl</span>
+                </a>
+                <a href="./pages/sewa-bot.html" class="flex items-center gap-3 px-4 py-3 text-[var(--text-secondary,#475569)] hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-all text-sm font-medium">
+                    <i data-lucide="bot" class="w-5 h-5"></i>
+                    <span>Sewa Bot & Prem</span>
+                </a>
+                <a href="./pages/script-yuki.html" class="flex items-center gap-3 px-4 py-3 text-[var(--text-secondary,#475569)] hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-all text-sm font-medium">
+                    <i data-lucide="code-2" class="w-5 h-5"></i>
+                    <span>Script Yuki AI</span>
+                </a>
+                <a href="./pages/spotify.html" class="flex items-center gap-3 px-4 py-3 text-[var(--text-secondary,#475569)] hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-all text-sm font-medium">
+                    <i data-lucide="music" class="w-5 h-5"></i>
+                    <span>Spotify Finder</span>
+                </a>
+                <a href="./pages/pinterest.html" class="flex items-center gap-3 px-4 py-3 text-[var(--text-secondary,#475569)] hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-all text-sm font-medium">
+                    <i data-lucide="image" class="w-5 h-5"></i>
+                    <span>Pinterest Search</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Footer Drawer Status -->
+        <div class="pt-4 border-t border-[var(--border-color,#f1f5f9)] flex flex-col gap-3">
+            <div class="flex items-center gap-2.5 px-3 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-medium border border-emerald-100">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Server Uptime: 99.9% Online</span>
+            </div>
+        </div>
+    </aside>
+
+    <main id="main-content" class="pt-16 lg:pt-0">
         <div class="page-container">
 
             <!-- HERO -->
@@ -320,6 +386,41 @@
             </div>
         </div>
     </div>
+
+    <!-- SCRIPT UTAMA & INTERAKSI DRAWER -->
     <script src="./script.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const menuToggle = document.getElementById("menu-toggle");
+            const closeDrawer = document.getElementById("close-drawer");
+            const mobileSidebar = document.getElementById("mobile-sidebar-drawer");
+            const mobileOverlay = document.getElementById("mobile-overlay");
+
+            function openDrawer() {
+                menuToggle?.classList.add("is-active");
+                mobileSidebar?.classList.add("open");
+                mobileOverlay?.classList.add("active");
+                document.body.style.overflow = "hidden";
+            }
+
+            function closeDrawerMenu() {
+                menuToggle?.classList.remove("is-active");
+                mobileSidebar?.classList.remove("open");
+                mobileOverlay?.classList.remove("active");
+                document.body.style.overflow = "";
+            }
+
+            menuToggle?.addEventListener("click", () => {
+                if (mobileSidebar?.classList.contains("open")) {
+                    closeDrawerMenu();
+                } else {
+                    openDrawer();
+                }
+            });
+
+            closeDrawer?.addEventListener("click", closeDrawerMenu);
+            mobileOverlay?.addEventListener("click", closeDrawerMenu);
+        });
+    </script>
 </body>
 </html>
