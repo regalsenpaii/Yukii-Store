@@ -4,11 +4,13 @@
    ========================================================================= */
 
 // --- 1. CORE & API CONFIGURATION ---
-const API_CONFIG = (() => {
-    const base = atob('aHR0cHM6Ly9hcGkuY2x1dGNoLndlYi5pZA==');
-    const key = atob('YWxpcGFpYXBpa2V5YmFydQ==');
-    return { base, key };
-})();
+// API Key disimpan di Vercel Environment Variable (REGAL_API_KEY)
+// Client hanya hit endpoint /api/* (proxy serverless)
+const API_PROXY = {
+    spotifyDownload: '/api/spotify-download',
+    spotifyLyrics: '/api/spotify-lyrics',
+    pinterest: '/api/pinterest'
+};
 
 // --- 2. SVG LOGOS & ICONS ---
 const SPOTIFY_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 168" width="18" height="18"><path fill="#1DB954" d="M84 0C37.8 0 0 37.8 0 84s37.8 84 84 84 84-37.8 84-84S130.2 0 84 0zm38.5 121.2c-1.5 2.5-4.7 3.2-7.1 1.7-19.5-11.9-44.1-14.6-73-8-2.8.6-5.6-1.1-6.2-3.9-.6-2.8 1.1-5.6 3.9-6.2 31.6-7.2 58.7-4.1 80.3 9.2 2.4 1.4 3.1 4.6 1.7 7.1zm10.3-22.9c-1.9 3-5.9 4-8.9 2.1-22.3-13.7-56.3-17.7-82.7-9.7-3.4 1-7-1-8-4.4s1-7 4.4-8c30.2-9.2 67.7-4.7 92.9 11.1 3.1 1.8 4.1 5.8 2.2 8.9zm.9-23.8c-26.8-15.9-71-17.4-96.5-9.6-4.1 1.2-8.4-1.1-9.6-5.2-1.2-4.1 1.1-8.4 5.2-9.6 29.3-8.9 78.1-7.2 108.7 11.1 3.7 2.2 4.9 6.9 2.7 10.6-2.2 3.6-6.9 4.9-10.5 2.7z"/></svg>`;
@@ -312,10 +314,31 @@ function initSpotify() {
                 showToast('Error', 'URL harus dari Spotify!', 'error');
                 return;
             }
-            const encodedUrl = encodeURIComponent(url);
-            const apiUrl = `${API_CONFIG.base}/download/spotify?apikey=${API_CONFIG.key}&url=${encodedUrl}`;
-            window.open(apiUrl, '_blank');
-            showToast('Sukses', 'Membuka link download...', 'success');
+            const submitBtn = dlForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn ? submitBtn.innerHTML : 'Unduh';
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '⏳ Memproses...'; }
+            showToast('Proses', 'Mengambil link download...', 'success');
+            try {
+                const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                const downloadUrl = data?.result?.download_url || data?.result?.url || data?.download_url || data?.url;
+                if (downloadUrl) {
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.target = '_blank';
+                    a.download = '';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    showToast('Sukses', 'Download dimulai!', 'success');
+                } else {
+                    showToast('Error', 'Gagal mendapatkan link download. Coba URL lain.', 'error');
+                }
+            } catch (err) {
+                showToast('Error', 'Gagal mengambil link: ' + err.message, 'error');
+            } finally {
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
+            }
         });
     }
 }
@@ -329,60 +352,38 @@ async function searchSpotify(query) {
     if (empty) empty.classList.add('hidden');
 
     let tracks = [];
-    let success = false;
 
     try {
         const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 10000);
-        const res = await fetch('https://itunes.apple.com/search?term=' + encodeURIComponent(query) + '&entity=song&limit=12', { signal: ctrl.signal });
+        const tid = setTimeout(() => ctrl.abort(), 15000);
+        const res = await fetch('https://api.nexray.web.id/search/spotify?q=' + encodeURIComponent(query), { signal: ctrl.signal });
         clearTimeout(tid);
-        if (res.ok) {
-            const data = await res.json();
-            if (data?.results?.length) {
-                tracks = data.results.map(item => ({
-                    title: item.trackName || 'Unknown',
-                    artist: item.artistName || 'Unknown',
-                    album: item.collectionName || '-',
-                    image: (item.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
-                    thumb: (item.artworkUrl100 || '').replace('100x100bb', '300x300bb'),
-                    url: item.previewUrl || '',
-                    duration: formatDuration(item.trackTimeMillis),
-                    durationMs: item.trackTimeMillis || 0,
-                    genre: item.primaryGenreName || 'Music'
-                }));
-                success = true;
-            }
-        }
-    } catch (e) { console.log('iTunes fail', e.message); }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
 
-    if (!success) {
-        try {
-            const ctrl = new AbortController();
-            const tid = setTimeout(() => ctrl.abort(), 10000);
-            const res = await fetch('https://api.deezer.com/search?q=' + encodeURIComponent(query) + '&limit=12', { signal: ctrl.signal });
-            clearTimeout(tid);
-            if (res.ok) {
-                const data = await res.json();
-                if (data?.data?.length) {
-                    tracks = data.data.map(item => ({
-                        title: item.title || 'Unknown',
-                        artist: item.artist?.name || 'Unknown',
-                        album: item.album?.title || '-',
-                        image: item.album?.cover_big || item.album?.cover_xl || item.album?.cover || '',
-                        thumb: item.album?.cover_big || item.album?.cover || '',
-                        url: item.preview || '',
-                        duration: formatDuration((item.duration || 0) * 1000),
-                        durationMs: (item.duration || 0) * 1000,
-                        genre: 'Music'
-                    }));
-                    success = true;
-                }
-            }
-        } catch (e) { console.log('Deezer fail', e.message); }
+        const rawTracks = data?.data || data?.result || (Array.isArray(data) ? data : []);
+        if (rawTracks.length) {
+            tracks = rawTracks.map(item => ({
+                title: item.title || item.name || 'Unknown',
+                artist: item.artist || item.artists || 'Unknown',
+                album: item.album || '-',
+                image: item.image || item.thumbnail || item.cover || '',
+                thumb: item.thumbnail || item.image || item.cover || '',
+                url: item.url || item.preview_url || item.link || '',
+                duration: item.duration || item.duration_ms ? formatDuration(item.duration_ms || 0) : '0:00',
+                durationMs: item.duration_ms || 0,
+                genre: item.genre || 'Music'
+            }));
+        }
+    } catch (e) { 
+        console.log('Nexray fail', e.message);
+        if (loading) loading.classList.add('hidden');
+        if (results) results.innerHTML = errorHTML('Gagal mencari lagu. Coba lagi nanti.');
+        return;
     }
 
     if (loading) loading.classList.add('hidden');
-    if (!success || !tracks.length) {
+    if (!tracks.length) {
         if (results) results.innerHTML = errorHTML('Tidak ada hasil. Coba kata kunci lain.');
         return;
     }
@@ -395,7 +396,7 @@ async function searchSpotify(query) {
                 <div class="track-row" data-id="${track.url}">
                     <img class="track-thumb" src="${track.thumb || track.image || ''}" alt="" loading="lazy" onerror="this.src='https://via.placeholder.com/300x300/e2e8f0/94a3b8?text=Music'">
                     <div class="track-info">
-                        <div class="track-title">${track.title}</div>
+                        <div class="track-title" title="${track.title}">${track.title}</div>
                         <div class="track-artist">${track.artist}</div>
                         <div class="track-meta-row">
                             <span class="track-meta">${IC_CLOCK} ${track.duration}</span>
@@ -456,15 +457,20 @@ async function openLyricsModal(trackJson) {
 
     try {
         const query = encodeURIComponent(track.title + ' ' + track.artist);
-        const apiUrl = `${API_CONFIG.base}/search/spotify-lirik?apikey=${API_CONFIG.key}&title=${query}`;
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 15000);
-        const res = await fetch(apiUrl, { signal: ctrl.signal });
+        const res = await fetch(`${API_PROXY.spotifyLyrics}?title=${query}`, { signal: ctrl.signal });
         clearTimeout(tid);
         if (res.ok) {
             const data = await res.json();
-            const lyrics = data?.result || data?.lyrics || data?.data?.lyrics || JSON.stringify(data, null, 2);
-            document.getElementById('lyrics-body').textContent = typeof lyrics === 'string' ? lyrics : JSON.stringify(lyrics, null, 2);
+            const lyrics = data?.result || data?.lyrics || data?.data?.lyrics || data?.data;
+            if (lyrics && typeof lyrics === 'string') {
+                document.getElementById('lyrics-body').textContent = lyrics;
+            } else if (lyrics) {
+                document.getElementById('lyrics-body').textContent = JSON.stringify(lyrics, null, 2);
+            } else {
+                document.getElementById('lyrics-body').textContent = 'Lirik tidak ditemukan untuk lagu ini.';
+            }
         } else {
             document.getElementById('lyrics-body').textContent = 'Gagal memuat lirik. Status: ' + res.status;
         }
@@ -613,37 +619,29 @@ async function searchPinterest(query) {
     if (results) results.innerHTML = '';
     if (empty) empty.classList.add('hidden');
 
-    let data = null, success = false;
-    const apiUrl = API_CONFIG.base + '/search/pinterest?apikey=' + API_CONFIG.key + '&q=' + encodeURIComponent(query);
+    let data = null;
 
     try {
         const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 10000);
-        const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(apiUrl), { signal: ctrl.signal });
+        const tid = setTimeout(() => ctrl.abort(), 15000);
+        const res = await fetch(`${API_PROXY.pinterest}?q=${encodeURIComponent(query)}`, { signal: ctrl.signal });
         clearTimeout(tid);
-        if (res.ok) {
-            const raw = await res.json();
-            if (raw?.contents) { data = JSON.parse(raw.contents); success = true; }
-        }
-    } catch (e) { console.log('AllOrigins fail'); }
-
-    if (!success) {
-        try {
-            const ctrl = new AbortController();
-            const tid = setTimeout(() => ctrl.abort(), 10000);
-            const res = await fetch('https://corsproxy.io/?url=' + encodeURIComponent(apiUrl), { signal: ctrl.signal });
-            clearTimeout(tid);
-            if (res.ok) { data = await res.json(); success = true; }
-        } catch (e) { console.log('Fallback fail'); }
-    }
-
-    if (loading) loading.classList.add('hidden');
-    if (!success || !data?.result?.length) {
-        if (results) results.innerHTML = errorHTML('Gagal memuat Pinterest. Coba lagi.');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        data = await res.json();
+    } catch (e) {
+        console.log('Pinterest proxy fail', e.message);
+        if (loading) loading.classList.add('hidden');
+        if (results) results.innerHTML = errorHTML('Gagal memuat Pinterest. Coba lagi nanti.');
         return;
     }
 
-    const images = data.result.filter(v => typeof v === 'string' && v.startsWith('http')).slice(0, 20);
+    if (loading) loading.classList.add('hidden');
+
+    const rawResult = data?.result || data?.data || data;
+    const images = Array.isArray(rawResult) 
+        ? rawResult.filter(v => typeof v === 'string' && v.startsWith('http')).slice(0, 20)
+        : [];
+
     if (!images.length) {
         if (results) results.innerHTML = `<div class="text-center py-10"><p class="text-sm text-[var(--text-muted)]">Tidak ada hasil untuk "${query}"</p></div>`;
         return;
