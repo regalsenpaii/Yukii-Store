@@ -8,26 +8,26 @@ export default async function handler(req, res) {
   const { q } = req.query;
   if (!q) return res.status(400).json({ error: 'Query parameter (q) is required' });
 
-  const apikey = process.env.REGAL_API_KEY;
-  if (!apikey) {
-    console.error('[Proxy] REGAL_API_KEY missing');
-    return res.status(500).json({ error: 'REGAL_API_KEY not configured' });
-  }
-
   try {
-    const apiUrl = `https://api.clutch.web.id/search/pinterest?apikey=${apikey}&q=${encodeURIComponent(q)}`;
-    console.log('[Proxy] Pinterest request:', q);
+    const apiUrl = `https://api.nexray.web.id/search/spotify?q=${encodeURIComponent(q)}`;
+    console.log('[Proxy] Searching Spotify:', apiUrl);
 
     const response = await fetch(apiUrl, { 
       headers: { 'User-Agent': 'YukiStore/1.0' },
       signal: AbortSignal.timeout(15000)
     });
 
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('[Proxy] Nexray error:', response.status, text.slice(0, 200));
+      return res.status(502).json({ error: 'Upstream API error', status: response.status, body: text.slice(0, 500) });
+    }
+
     const data = await response.json();
-    console.log('[Proxy] Pinterest response type:', Array.isArray(data) ? 'array' : typeof data, 'length:', Array.isArray(data) ? data.length : (data?.result?.length || 0));
+    console.log('[Proxy] Nexray success, items:', (data?.data || data?.result || []).length);
     res.status(200).json(data);
   } catch (error) {
-    console.error('[Proxy] Pinterest exception:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('[Proxy] Exception:', error.message);
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 }
