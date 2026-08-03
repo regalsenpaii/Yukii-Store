@@ -56,19 +56,24 @@
         </div>
     </div>
 
-    <!-- DESKTOP SIDEBAR -->
-    <aside id="sidebar">
+    <aside id="sidebar" class="overflow-x-hidden overflow-y-hidden max-w-full">
+        <!-- SIDEBAR BRAND (YUKI STORE) -->
         <div class="sidebar-brand">
-            <div class="flex items-center gap-3">
-                <div class="brand-icon">
+            <div id="sidebar-brand-click" class="flex items-center gap-3 cursor-pointer select-none group relative p-1.5 rounded-xl transition-all duration-300 hover:bg-[var(--hover-bg)]" title="Klik untuk efek ombak!">
+        
+                <!-- Icon Bintang -->
+                <div class="brand-icon transition-transform duration-300 group-hover:scale-110">
                     <i data-lucide="sparkles" class="w-5 h-5 text-white relative z-10"></i>
                 </div>
-                <div>
-                    <h1 class="font-bold text-[var(--text-primary)] text-sm tracking-wide">YUKI STORE</h1>
+        
+                <!-- Teks Brand Interaktif -->
+                <div class="relative overflow-hidden py-1">
+                    <h1 id="yuki-brand-text" class="font-bold text-[var(--text-primary)] text-sm tracking-wide transition-colors duration-300">YUKI STORE</h1>
                     <p class="text-[10px] text-[var(--text-muted)] font-semibold tracking-widest">DASHBOARD v1.0</p>
                 </div>
             </div>
         </div>
+
         <nav class="sidebar-nav">
             <a href="index.html" class="nav-item active">
                 <i data-lucide="layout-dashboard" class="nav-icon"></i><span>Dashboard</span>
@@ -89,18 +94,19 @@
                 <i data-lucide="image" class="nav-icon"></i><span>Pinterest Search</span>
             </a>
         </nav>
-        <div class="sidebar-footer">
-            <!-- THEME TOGGLE (di atas uptime) -->
-            <div class="theme-toggle-wrap">
-                <span class="theme-toggle-label">Terang</span>
-                <label class="theme-toggle">
-                    <input type="checkbox" id="theme-switch">
-                    <span class="theme-toggle-slider"></span>
-                </label>
-                <span class="theme-toggle-label">Gelap</span>
-            </div>
+        <div class="sidebar-footer space-y-4">
+        <!-- THEME TOGGLE (MODE TAMPILAN) -->
+        <div class="flex items-center justify-between p-3 rounded-xl bg-[var(--card-bg)] border border-[var(--border-color)]">
+            <span class="text-xs font-semibold text-[var(--text-primary)]">Mode Tampilan</span>
     
-            <!-- UPTIME CARD -->
+            <!-- Tombol Switch Animasi Telegram -->
+            <button id="theme-toggle" type="button" aria-label="Toggle Theme" class="theme-toggle-btn">
+                <i data-lucide="sun" class="sun-icon text-amber-500"></i>
+                <i data-lucide="moon" class="moon-icon text-blue-400"></i>
+            </button>
+        </div>
+
+            <!-- 2. UPTIME CARD (Otomatis terpisah jarak space-y-4) -->
             <div class="uptime-card">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="status-pulse"></span>
@@ -112,83 +118,32 @@
         </div>
     </aside>
 
-    <!-- MOBILE OVERLAY BACKDROP -->
-    <div id="mobile-overlay" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md z-40 lg:hidden"></div>
+    <div id="mobile-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden lg:hidden"></div>
 
-    <!-- MOBILE HEADER FIXED -->
-    <div class="mobile-header fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b border-slate-100/80 px-4 flex items-center justify-between z-30 lg:hidden">
-        <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-400 flex items-center justify-center shadow-md shadow-blue-500/20">
+    <div class="mobile-header">
+        <!-- Tambahkan ID mobile-brand-click, class cursor-pointer, dan hover -->
+        <div id="mobile-brand-click" class="flex items-center gap-2 cursor-pointer select-none py-1 px-1.5 rounded-xl transition-all duration-300 hover:bg-[var(--hover-bg)]" title="Klik YUKI STORE!">
+        
+            <!-- Tambahkan class brand-icon agar ikonnya ikut animasi membal -->
+            <div class="brand-icon w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-400 flex items-center justify-center transition-transform duration-300">
                 <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
             </div>
-            <span class="font-bold text-[var(--text-primary)] text-sm">YUKI STORE</span>
+        
+            <!-- Pembungkus overflow-hidden & ID yuki-mobile-text agar teks tersapu ombak dengan rapi -->
+            <div class="relative overflow-hidden py-1">
+                <span id="yuki-mobile-text" class="font-bold text-[var(--text-primary)] text-sm block">YUKI STORE</span>
+            </div>
         </div>
-        <!-- HAMBURGER 3 GARIS → X -->
-        <button id="menu-toggle" class="hamburger p-2.5 rounded-xl hover:bg-slate-100/80 active:bg-slate-200/60 transition-colors focus:outline-none" aria-label="Toggle Navigation">
-            <span></span>
-            <span></span>
-            <span></span>
+
+        <!-- Tombol Menu dengan 3 Baris Animasi -->
+        <button id="menu-toggle" class="p-2.5 rounded-xl hover:bg-[var(--hover-bg)] transition-all duration-300 relative group flex flex-col justify-center items-center gap-1 w-10 h-10 overflow-hidden">
+            <span class="w-5 h-0.5 bg-[var(--text-primary)] rounded-full transition-all duration-300 transform origin-center bar-1"></span>
+            <span class="w-5 h-0.5 bg-[var(--text-primary)] rounded-full transition-all duration-300 bar-2"></span>
+            <span class="w-5 h-0.5 bg-[var(--text-primary)] rounded-full transition-all duration-300 transform origin-center bar-3"></span>
         </button>
     </div>
 
-    <!-- MOBILE SIDEBAR DRAWER (SLIDE FROM RIGHT) -->
-    <aside id="mobile-sidebar-drawer" class="fixed top-0 right-0 bottom-0 w-[285px] bg-[var(--bg-card,#ffffff)] z-50 flex flex-col justify-between p-5 shadow-2xl lg:hidden">
-        <div>
-            <!-- Header Drawer -->
-            <div class="flex items-center justify-between pb-5 border-b border-[var(--border-color,#f1f5f9)]">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-400 flex items-center justify-center shadow-md shadow-blue-500/20">
-                        <i data-lucide="sparkles" class="w-4.5 h-4.5 text-white"></i>
-                    </div>
-                    <div>
-                        <h2 class="font-bold text-[var(--text-primary,#0f172a)] text-sm tracking-wide">YUKI STORE</h2>
-                        <p class="text-[10px] text-[var(--text-muted,#94a3b8)] font-semibold tracking-wider">DASHBOARD v1.0</p>
-                    </div>
-                </div>
-                <button id="close-drawer" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-
-            <!-- Navigation Links -->
-            <nav class="mt-6 flex flex-col gap-1.5">
-                <a href="index.html" class="flex items-center gap-3 px-4 py-3 text-blue-600 bg-blue-50/80 rounded-xl font-semibold text-sm transition-all shadow-sm">
-                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="./pages/pterodactyl.html" class="flex items-center gap-3 px-4 py-3 text-[var(--text-secondary,#475569)] hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-all text-sm font-medium">
-                    <i data-lucide="server" class="w-5 h-5"></i>
-                    <span>Panel Pterodactyl</span>
-                </a>
-                <a href="./pages/sewa-bot.html" class="flex items-center gap-3 px-4 py-3 text-[var(--text-secondary,#475569)] hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-all text-sm font-medium">
-                    <i data-lucide="bot" class="w-5 h-5"></i>
-                    <span>Sewa Bot & Prem</span>
-                </a>
-                <a href="./pages/script-yuki.html" class="flex items-center gap-3 px-4 py-3 text-[var(--text-secondary,#475569)] hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-all text-sm font-medium">
-                    <i data-lucide="code-2" class="w-5 h-5"></i>
-                    <span>Script Yuki AI</span>
-                </a>
-                <a href="./pages/spotify.html" class="flex items-center gap-3 px-4 py-3 text-[var(--text-secondary,#475569)] hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-all text-sm font-medium">
-                    <i data-lucide="music" class="w-5 h-5"></i>
-                    <span>Spotify Finder</span>
-                </a>
-                <a href="./pages/pinterest.html" class="flex items-center gap-3 px-4 py-3 text-[var(--text-secondary,#475569)] hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-all text-sm font-medium">
-                    <i data-lucide="image" class="w-5 h-5"></i>
-                    <span>Pinterest Search</span>
-                </a>
-            </nav>
-        </div>
-
-        <!-- Footer Drawer Status -->
-        <div class="pt-4 border-t border-[var(--border-color,#f1f5f9)] flex flex-col gap-3">
-            <div class="flex items-center gap-2.5 px-3 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-medium border border-emerald-100">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Server Uptime: 99.9% Online</span>
-            </div>
-        </div>
-    </aside>
-
-    <main id="main-content" class="pt-16 lg:pt-0">
+    <main id="main-content">
         <div class="page-container">
 
             <!-- HERO -->
@@ -386,41 +341,6 @@
             </div>
         </div>
     </div>
-
-    <!-- SCRIPT UTAMA & INTERAKSI DRAWER -->
     <script src="./script.js"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const menuToggle = document.getElementById("menu-toggle");
-            const closeDrawer = document.getElementById("close-drawer");
-            const mobileSidebar = document.getElementById("mobile-sidebar-drawer");
-            const mobileOverlay = document.getElementById("mobile-overlay");
-
-            function openDrawer() {
-                menuToggle?.classList.add("is-active");
-                mobileSidebar?.classList.add("open");
-                mobileOverlay?.classList.add("active");
-                document.body.style.overflow = "hidden";
-            }
-
-            function closeDrawerMenu() {
-                menuToggle?.classList.remove("is-active");
-                mobileSidebar?.classList.remove("open");
-                mobileOverlay?.classList.remove("active");
-                document.body.style.overflow = "";
-            }
-
-            menuToggle?.addEventListener("click", () => {
-                if (mobileSidebar?.classList.contains("open")) {
-                    closeDrawerMenu();
-                } else {
-                    openDrawer();
-                }
-            });
-
-            closeDrawer?.addEventListener("click", closeDrawerMenu);
-            mobileOverlay?.addEventListener("click", closeDrawerMenu);
-        });
-    </script>
 </body>
 </html>

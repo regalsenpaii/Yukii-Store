@@ -86,20 +86,123 @@ function isPage(name) {
     return window.location.pathname.includes(name);
 }
 
-// --- 6. THEME SYSTEM ---
-function initTheme() {
-    const toggle = document.getElementById('theme-switch');
-    if (!toggle) return;
+// --- ANIMASI BRAND YUKI STORE (EFEK SAPU OMBAK & FALL FROM TOP) ---
+function attachYukiWaveAnimation(containerId, textId) {
+    const brandContainer = document.getElementById(containerId);
+    const brandText = document.getElementById(textId);
+    const brandIcon = brandContainer ? brandContainer.querySelector('.brand-icon') : null;
 
-    const saved = localStorage.getItem('yuki_theme') || 'light';
-    toggle.checked = saved === 'dark';
+    if (!brandContainer || !brandText) return;
 
-    toggle.addEventListener('change', () => {
-        const theme = toggle.checked ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('yuki_theme', theme);
+    let isAnimating = false;
+
+    // Pecah teks YUKI STORE menjadi span per huruf secara otomatis
+    const textContent = brandText.textContent.trim();
+    brandText.innerHTML = '';
+    
+    const letterSpans = [];
+    [...textContent].forEach((char) => {
+        const span = document.createElement('span');
+        span.className = 'yuki-wave-letter';
+        // Menjaga spasi agar tidak runtuh
+        if (char === ' ') {
+            span.innerHTML = '&nbsp;';
+        } else {
+            span.textContent = char;
+        }
+        brandText.appendChild(span);
+        letterSpans.push(span);
+    });
+
+    brandContainer.addEventListener('click', () => {
+        if (isAnimating) return; // Mencegah spam klik berlebihan
+        isAnimating = true;
+
+        // Trigger animasi bounce pada icon
+        if (brandIcon) {
+            brandIcon.classList.remove('brand-icon-active');
+            void brandIcon.offsetWidth;
+            brandIcon.classList.add('brand-icon-active');
+        }
+
+        // 1. Fase Sapu Ombak (Hilang ke bawah berurutan)
+        letterSpans.forEach((span, index) => {
+            setTimeout(() => {
+                span.className = 'yuki-wave-letter yuki-wave-out';
+            }, index * 35); // Delay 35ms per huruf untuk efek ombak
+        });
+
+        // Total durasi fase 1
+        const waveOutDuration = (letterSpans.length * 35) + 300;
+
+        // 2. Fase Jatuh dari Atas (Re-appear dari atas secara berurutan)
+        setTimeout(() => {
+            letterSpans.forEach((span, index) => {
+                setTimeout(() => {
+                    span.className = 'yuki-wave-letter yuki-wave-in';
+                }, index * 40); // Delay muncul berurutan dari kiri ke kanan
+            });
+
+            // Clean up class setelah semua animasi selesai
+            const totalDuration = (letterSpans.length * 40) + 500;
+            setTimeout(() => {
+                letterSpans.forEach(span => {
+                    span.className = 'yuki-wave-letter';
+                });
+                if (brandIcon) brandIcon.classList.remove('brand-icon-active');
+                isAnimating = false;
+            }, totalDuration);
+
+        }, waveOutDuration);
     });
 }
+
+// Fungsi Panggil Utama
+function initYukiBrandAnimation() {
+    // Jalankan untuk Mobile Header
+    attachYukiWaveAnimation('mobile-brand-click', 'yuki-mobile-text');
+    // Jalankan untuk Sidebar Desktop
+    attachYukiWaveAnimation('sidebar-brand-click', 'yuki-brand-text');
+}
+
+// Jalankan saat DOM siap
+document.addEventListener('DOMContentLoaded', () => {
+    initYukiBrandAnimation();
+});
+
+// --- THEME SWITCHER LOGIC ---
+function initTheme() {
+    const themeToggle = document.getElementById('theme-toggle');
+    const htmlEl = document.documentElement;
+
+    // Ambil tema tersimpan (default 'dark')
+    const savedTheme = localStorage.getItem('yuki_theme') || 'dark';
+
+    function applyTheme(theme) {
+        if (theme === 'dark') {
+            htmlEl.classList.add('dark');
+            htmlEl.setAttribute('data-theme', 'dark');
+        } else {
+            htmlEl.classList.remove('dark');
+            htmlEl.setAttribute('data-theme', 'light');
+        }
+        localStorage.setItem('yuki_theme', theme);
+    }
+
+    // Jalankan pertama kali
+    applyTheme(savedTheme);
+
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            const isDark = htmlEl.classList.contains('dark') || htmlEl.getAttribute('data-theme') === 'dark';
+            const newTheme = isDark ? 'light' : 'dark';
+
+            // Cukup ubah class/attribute HTML, CSS yang akan mengeksekusi animasi
+            applyTheme(newTheme);
+        });
+    }
+}
+
 
 // --- 7. SIDEBAR MOBILE ---
 function initSidebar() {
@@ -110,13 +213,13 @@ function initSidebar() {
     function openSidebar() {
         if (sidebar) sidebar.classList.add('open');
         if (overlay) overlay.classList.remove('hidden');
-        if (menuToggle) menuToggle.classList.add('active');
+        if (menuToggle) menuToggle.classList.add('open'); // Menggunakan kelas 'open' untuk animasi garis
     }
 
     function closeSidebar() {
         if (sidebar) sidebar.classList.remove('open');
         if (overlay) overlay.classList.add('hidden');
-        if (menuToggle) menuToggle.classList.remove('active');
+        if (menuToggle) menuToggle.classList.remove('open'); // Menghapus kelas 'open'
     }
 
     if (menuToggle) {
@@ -128,6 +231,7 @@ function initSidebar() {
             }
         });
     }
+
     if (overlay) {
         overlay.addEventListener('click', closeSidebar);
     }
@@ -1284,6 +1388,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initInvoiceForm();
     initKeyboard();
     initLoader();
+    initYukiBrandAnimation();
 
     if (isPage('pterodactyl')) renderPanelProducts();
     if (isPage('spotify')) initSpotify();
