@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const { q } = req.query;
-  if (!q) return res.status(400).json({ error: 'Query parameter (q) is required' });
+  if (!q) return res.status(400).json({ status: false, error: 'Query parameter (q) is required' });
 
   try {
     const apiUrl = `https://api.nexray.web.id/search/spotify?q=${encodeURIComponent(q)}`;
@@ -20,14 +20,16 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const text = await response.text();
       console.error('[Proxy] Nexray error:', response.status, text.slice(0, 200));
-      return res.status(502).json({ error: 'Upstream API error', status: response.status, body: text.slice(0, 500) });
+      return res.status(502).json({ status: false, error: 'Upstream API error', statusCode: response.status });
     }
 
     const data = await response.json();
     console.log('[Proxy] Nexray success, items:', (data?.data || data?.result || []).length);
+
+    // Pass through response AS-IS
     res.status(200).json(data);
   } catch (error) {
     console.error('[Proxy] Exception:', error.message);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    res.status(500).json({ status: false, error: error.message });
   }
 }
