@@ -65,7 +65,13 @@ function formatDuration(input) {
     if (!input && input !== 0) return '0:00';
     if (typeof input === 'string') {
         const t = input.trim();
+        // Already formatted mm:ss
         if (/^\d{1,2}:\d{2}$/.test(t)) return t;
+        // Format hh:mm:ss → mm:ss
+        if (/^\d{1,2}:\d{2}:\d{2}$/.test(t)) {
+            const parts = t.split(':');
+            return parts[0] + ':' + parts[1];
+        }
         const n = parseInt(t, 10);
         if (!isNaN(n)) input = n; else return '0:00';
     }
@@ -84,6 +90,19 @@ function initIcons() {
 
 function isPage(name) {
     return window.location.pathname.includes(name);
+}
+
+// --- 5b. NORMALIZE DOWNLOAD RESULT (FIX THUMBNAIL & DURATION) ---
+function normalizeDownloadResult(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+    return {
+        title: raw.title || raw.name || raw.trackName || raw.track || 'Unknown',
+        artist: raw.artist || raw.artists || raw.artistName || raw.artist_name || 'Unknown',
+        album: raw.album || raw.collectionName || raw.albumName || raw.album_name || '-',
+        image: raw.image || raw.thumbnail || raw.cover || raw.artwork || raw.artworkUrl || raw.artwork_url || raw.picture || raw.img || '',
+        duration: raw.duration || raw.duration_ms || raw.durationMs || raw.length || raw.trackDuration || raw.time || raw.timelength || '0:00',
+        download: raw.download || raw.url || raw.link || raw.audio || raw.audio_url || raw.file || raw.direct || raw.downloadUrl || raw.download_url || ''
+    };
 }
 
 // --- ANIMASI BRAND YUKI STORE (EFEK SAPU OMBAK & FALL FROM TOP) ---
@@ -483,8 +502,8 @@ function initSpotify() {
                     return;
                 }
 
-                // Show info modal with download button
-                const result = data.result;
+                // Normalize result sebelum ditampilkan
+                const result = normalizeDownloadResult(data.result);
                 showDownloadInfoModal(result, url);
 
             } catch (e) {
@@ -736,18 +755,18 @@ async function fetchAndPlayTrack(enc) {
             return;
         }
 
-        // Try multiple possible paths for download URL
-        let downloadUrl = data.result.download || data.result.url || data.result.link || data.result.audio || data.result.audio_url || data.result.file || '';
-        console.log('[Play] downloadUrl raw:', downloadUrl);
+        // === FIX: Normalize result untuk handle berbagai nama field ===
+        const r = normalizeDownloadResult(data.result);
+        console.log('[Play] Normalized:', { title: r.title, artist: r.artist, image: r.image ? 'YES' : 'NO', duration: r.duration, download: r.download ? 'YES' : 'NO' });
 
-        if (!downloadUrl || typeof downloadUrl !== 'string' || !downloadUrl.startsWith('http')) {
+        if (!r.download) {
             console.error('[Play] No valid download URL. Available keys:', Object.keys(data.result));
             showToast('Error', 'Link audio tidak ditemukan di response.', 'error');
             return;
         }
 
-        console.log('[Play] ✅ Got audio URL:', downloadUrl.substring(0, 100));
-        playSpotify(downloadUrl, data.result.title || track.title, data.result.artist || track.artist, data.result.image || track.image);
+        console.log('[Play] ✅ Got audio URL:', r.download.substring(0, 100));
+        playSpotify(r.download, r.title, r.artist, r.image);
 
     } catch (e) {
         console.error('[Play] Exception:', e.message, e.stack);
@@ -860,18 +879,24 @@ async function downloadFromDetail() {
         const data = await res.json();
         console.log('[Download] Response:', JSON.stringify(data).substring(0, 500));
 
-        if (data.status && data.result && data.result.download) {
-            // Create a temporary link to force download
-            const a = document.createElement('a');
-            a.href = data.result.download;
-            a.target = '_blank';
-            a.download = (data.result.title || currentTrackData.title || 'lagu') + '.mp3';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            showToast('Sukses', 'Download ' + (data.result.title || '') + ' dimulai!', 'success');
+        if (data.status && data.result) {
+            // === FIX: Normalize result ===
+            const r = normalizeDownloadResult(data.result);
+
+            if (r.download) {
+                const a = document.createElement('a');
+                a.href = r.download;
+                a.target = '_blank';
+                a.download = r.title + '.mp3';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showToast('Sukses', 'Download ' + r.title + ' dimulai!', 'success');
+            } else {
+                console.error('[Download] No download URL. Keys:', Object.keys(data.result));
+                showToast('Error', 'Gagal mendapatkan link download.', 'error');
+            }
         } else {
-            console.error('[Download] No download URL. Keys:', data.result ? Object.keys(data.result) : 'no result');
             showToast('Error', 'Gagal mendapatkan link download.', 'error');
         }
     } catch (e) {
@@ -1319,10 +1344,10 @@ function showDownloadInfoModal(result, spotifyUrl) {
     coverImg.src = result.image || '';
     coverImg.style.display = 'block';
 
-    document.getElementById('dl-info-title').textContent = result.title || 'Unknown';
-    document.getElementById('dl-info-artist').textContent = result.artist || 'Unknown';
-    document.getElementById('dl-info-album').textContent = result.album || '-';
-    document.getElementById('dl-info-duration').textContent = result.duration || '0:00';
+    document.getElementById('dl-info-title').textContent = result.title;
+    document.getElementById('dl-info-artist').textContent = result.artist;
+    document.getElementById('dl-info-album').textContent = result.album;
+    document.getElementById('dl-info-duration').textContent = formatDuration(result.duration);
 
     const dlBtn = document.getElementById('dl-info-download-btn');
     dlBtn.onclick = () => {
