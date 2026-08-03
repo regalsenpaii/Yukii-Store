@@ -553,7 +553,7 @@ function closeLyricsModal() {
 async function fetchAndPlayTrack(enc) {
     let track;
     try { track = JSON.parse(decodeURIComponent(enc)); }
-    catch (e) { console.error(e); return; }
+    catch (e) { console.error('[Play] Parse error:', e); return; }
 
     if (!track.trackUrl) {
         showToast('Error', 'URL Spotify tidak tersedia untuk lagu ini.', 'error');
@@ -561,7 +561,7 @@ async function fetchAndPlayTrack(enc) {
     }
 
     showToast('Proses', 'Mengambil audio...', 'success');
-    console.log('[Play] Fetching download for:', track.trackUrl);
+    console.log('[Play] Fetching download for trackUrl:', track.trackUrl);
 
     try {
         const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(track.trackUrl)}`);
@@ -569,31 +569,37 @@ async function fetchAndPlayTrack(enc) {
 
         if (!res.ok) {
             const err = await res.text();
-            console.error('[Play] Download error:', err.slice(0, 200));
-            showToast('Error', 'Gagal mengambil audio. Coba lagi.', 'error');
+            console.error('[Play] Download error:', err.slice(0, 300));
+            showToast('Error', 'Gagal mengambil audio. Status: ' + res.status, 'error');
             return;
         }
 
         const data = await res.json();
-        console.log('[Play] Download response keys:', Object.keys(data));
+        console.log('[Play] Full response:', JSON.stringify(data, null, 2).substring(0, 800));
+        console.log('[Play] data.status:', data.status);
+        console.log('[Play] data.result:', data.result ? 'EXISTS' : 'MISSING');
 
         if (!data.status || !data.result) {
-            showToast('Error', 'Gagal mengambil data lagu dari server.', 'error');
+            console.error('[Play] Invalid response structure');
+            showToast('Error', 'Response server tidak valid.', 'error');
             return;
         }
 
-        const downloadUrl = data.result.download;
-        if (!downloadUrl || !downloadUrl.startsWith('http')) {
-            console.error('[Play] No download URL in response');
-            showToast('Error', 'Link audio tidak ditemukan.', 'error');
+        // Try multiple possible paths for download URL
+        let downloadUrl = data.result.download || data.result.url || data.result.link || data.result.audio || data.result.audio_url || data.result.file || '';
+        console.log('[Play] downloadUrl raw:', downloadUrl);
+
+        if (!downloadUrl || typeof downloadUrl !== 'string' || !downloadUrl.startsWith('http')) {
+            console.error('[Play] No valid download URL. Available keys:', Object.keys(data.result));
+            showToast('Error', 'Link audio tidak ditemukan di response.', 'error');
             return;
         }
 
-        console.log('[Play] Got audio URL, starting playback');
+        console.log('[Play] ✅ Got audio URL:', downloadUrl.substring(0, 100));
         playSpotify(downloadUrl, data.result.title || track.title, data.result.artist || track.artist, data.result.image || track.image);
 
     } catch (e) {
-        console.error('[Play] Exception:', e.message);
+        console.error('[Play] Exception:', e.message, e.stack);
         showToast('Error', 'Gagal memutar: ' + e.message, 'error');
     }
 }
@@ -694,21 +700,32 @@ async function downloadFromDetail() {
 
     const btn = document.getElementById('td-btn-dl');
     const originalText = btn.innerHTML;
-    btn.innerHTML = '⏳...';
+    btn.innerHTML = '⏳ Mengambil...';
     btn.disabled = true;
 
     try {
+        console.log('[Download] Fetching for:', currentTrackData.trackUrl);
         const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(currentTrackData.trackUrl)}`);
         const data = await res.json();
+        console.log('[Download] Response:', JSON.stringify(data).substring(0, 500));
 
         if (data.status && data.result && data.result.download) {
-            window.open(data.result.download, '_blank');
-            showToast('Sukses', 'Download dimulai di tab baru!', 'success');
+            // Create a temporary link to force download
+            const a = document.createElement('a');
+            a.href = data.result.download;
+            a.target = '_blank';
+            a.download = (data.result.title || currentTrackData.title || 'lagu') + '.mp3';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('Sukses', 'Download ' + (data.result.title || '') + ' dimulai!', 'success');
         } else {
+            console.error('[Download] No download URL. Keys:', data.result ? Object.keys(data.result) : 'no result');
             showToast('Error', 'Gagal mendapatkan link download.', 'error');
         }
     } catch (e) {
-        showToast('Error', 'Gagal: ' + e.message, 'error');
+        console.error('[Download] Error:', e);
+        showToast('Error', 'Gagal download: ' + e.message, 'error');
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
@@ -923,61 +940,69 @@ function pauseAudio() {
 }
 
 function playSpotify(url, title, artist, cover) {
-    if (!url || !url.startsWith('http')) {
+    console.log('[Play] playSpotify called with URL:', url ? url.substring(0, 80) : 'EMPTY');
+
+    if (!url) {
+        console.error('[Play] URL is empty/undefined');
+        showToast('Error', 'URL audio kosong.', 'error');
+        return;
+    }
+    if (!url.startsWith('http')) {
         console.error('[Play] Invalid audio URL:', url);
-        showToast('Error', 'URL audio tidak valid.', 'error');
+        showToast('Error', 'URL audio tidak valid: ' + url.substring(0, 50), 'error');
         return;
     }
 
     const player = document.getElementById('audio-player');
-    const audio = document.getElementById('audio-element');
+    let audio = document.getElementById('audio-element');
     const playBtn = document.getElementById('player-play');
     const titleEl = document.getElementById('player-title');
     const artistEl = document.getElementById('player-artist');
     const coverEl = document.getElementById('player-cover');
+
+    if (!audio) {
+        console.error('[Play] Audio element NOT FOUND in DOM');
+        showToast('Error', 'Audio player tidak ditemukan.', 'error');
+        return;
+    }
 
     currentAudioUrl = url;
     if (titleEl) titleEl.textContent = title || 'Unknown';
     if (artistEl) artistEl.textContent = artist || 'Unknown';
     if (coverEl) { coverEl.src = cover || ''; coverEl.classList.remove('hidden'); }
 
-    if (audio) {
-        audio.crossOrigin = 'anonymous';
-        // Force reload by creating new audio element or resetting src
-        if (audio.src !== url) {
-            audio.src = url;
-            audio.load();
-        }
-    }
+    // ALWAYS set src fresh (don't compare, just set)
+    console.log('[Play] Setting audio.src to:', url.substring(0, 80));
+    audio.crossOrigin = 'anonymous';
+    audio.src = url;
+    audio.load();
 
     initVisualizer();
 
-    if (audio && url) {
-        console.log('[Play] Attempting playback:', url.substring(0, 80));
-        const playPromise = audio.play();
+    console.log('[Play] Calling audio.play()...');
+    const playPromise = audio.play();
 
-        if (playPromise !== undefined) {
-            playPromise.then(() => {
-                console.log('[Play] Playback started successfully');
-                isPlaying = true;
-                if (player) {
-                    player.classList.add('show');
-                    player.classList.remove('paused');
-                }
-                if (playBtn) {
-                    playBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-                    playBtn.classList.add('player-pulse');
-                }
-                try {
-                    setupAudioContext(audio);
-                    startVisualizer();
-                } catch (e) { console.log('Visualizer error', e); }
-            }).catch((err) => {
-                console.error('[Play] Playback failed:', err.name, err.message);
-                showToast('Error', 'Gagal memutar audio: ' + (err.message || 'CORS/Format tidak didukung'), 'error');
-                if (player) player.classList.remove('show');
-            });
-        }
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            console.log('[Play] ✅ Playback started successfully');
+            isPlaying = true;
+            if (player) {
+                player.classList.add('show');
+                player.classList.remove('paused');
+            }
+            if (playBtn) {
+                playBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+                playBtn.classList.add('player-pulse');
+            }
+            try {
+                setupAudioContext(audio);
+                startVisualizer();
+            } catch (e) { console.log('[Play] Visualizer error:', e); }
+        }).catch((err) => {
+            console.error('[Play] ❌ Playback failed:', err.name, err.message);
+            showToast('Error', 'Gagal memutar: ' + (err.message || 'CORS/Format error'), 'error');
+            if (player) player.classList.remove('show');
+        });
     }
 
     if (playBtn) {
@@ -1007,22 +1032,30 @@ function playSpotify(url, title, artist, cover) {
         };
     }
 
-    if (audio) {
-        audio.onended = () => {
-            isPlaying = false;
-            if (player) {
-                player.classList.remove('show');
-                player.classList.add('paused');
+    audio.onended = () => {
+        console.log('[Audio] Playback ended');
+        isPlaying = false;
+        if (player) {
+            player.classList.remove('show');
+            player.classList.add('paused');
+        }
+        if (playBtn) playBtn.classList.remove('player-pulse');
+        stopVisualizer();
+    };
+    audio.onerror = (e) => {
+        console.error('[Audio] ❌ Error code:', audio.error?.code, 'message:', audio.error?.message);
+        let errMsg = 'Error audio';
+        if (audio.error) {
+            switch(audio.error.code) {
+                case 1: errMsg = 'Aborted'; break;
+                case 2: errMsg = 'Network error - CORS mungkin'; break;
+                case 3: errMsg = 'Decode error - format tidak didukung'; break;
+                case 4: errMsg = 'Source not supported'; break;
             }
-            if (playBtn) playBtn.classList.remove('player-pulse');
-            stopVisualizer();
-        };
-        audio.onerror = (e) => {
-            console.error('[Audio] Error:', audio.error);
-            showToast('Error', 'Error audio: ' + (audio.error?.message || 'Format tidak didukung'), 'error');
-            closePlayer();
-        };
-    }
+        }
+        showToast('Error', 'Audio error: ' + errMsg, 'error');
+        closePlayer();
+    };
 
     initIcons();
 }
