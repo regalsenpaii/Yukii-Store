@@ -106,18 +106,60 @@ function initSidebar() {
     const menuToggle = document.getElementById('menu-toggle');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('mobile-overlay');
+
+    function openSidebar() {
+        if (sidebar) sidebar.classList.add('open');
+        if (overlay) overlay.classList.remove('hidden');
+        if (menuToggle) menuToggle.classList.add('active');
+    }
+
+    function closeSidebar() {
+        if (sidebar) sidebar.classList.remove('open');
+        if (overlay) overlay.classList.add('hidden');
+        if (menuToggle) menuToggle.classList.remove('active');
+    }
+
     if (menuToggle) {
         menuToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('hidden');
+            if (sidebar && sidebar.classList.contains('open')) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
         });
     }
     if (overlay) {
-        overlay.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-            overlay.classList.add('hidden');
-        });
+        overlay.addEventListener('click', closeSidebar);
     }
+
+    // Swipe to close sidebar
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    if (sidebar) {
+        sidebar.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        sidebar.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            if (touchStartX - touchEndX > 80) { // Swipe left > 80px
+                closeSidebar();
+            }
+        }, { passive: true });
+    }
+
+    // Swipe from edge to open
+    document.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        if (touchEndX - touchStartX > 80 && touchStartX < 30) { // Swipe right from edge
+            openSidebar();
+        }
+    }, { passive: true });
 }
 
 // --- 8. PRODUCT RENDERING ---
@@ -1138,8 +1180,8 @@ function showDownloadInfoModal(result, spotifyUrl) {
                     </button>
                 </div>
                 <div class="p-6 space-y-4">
-                    <div class="flex items-center gap-4">
-                        <img id="dl-info-cover" src="" alt="Cover" class="w-20 h-20 rounded-xl object-cover shadow-md" onerror="this.style.display='none'">
+                    <div class="flex flex-col items-center text-center gap-3">
+                        <img id="dl-info-cover" src="" alt="Cover" class="w-32 h-32 rounded-2xl object-cover shadow-lg" onerror="this.src='https://via.placeholder.com/300x300/e2e8f0/94a3b8?text=Music';this.onerror=null;">
                         <div>
                             <h4 id="dl-info-title" class="font-bold text-[var(--text-primary)] text-lg"></h4>
                             <p id="dl-info-artist" class="text-sm text-[var(--text-secondary)]"></p>
@@ -1169,7 +1211,10 @@ function showDownloadInfoModal(result, spotifyUrl) {
         document.body.appendChild(modal);
     }
 
-    document.getElementById('dl-info-cover').src = result.image || '';
+    const coverImg = document.getElementById('dl-info-cover');
+    coverImg.src = result.image || '';
+    coverImg.style.display = 'block';
+
     document.getElementById('dl-info-title').textContent = result.title || 'Unknown';
     document.getElementById('dl-info-artist').textContent = result.artist || 'Unknown';
     document.getElementById('dl-info-album').textContent = result.album || '-';
