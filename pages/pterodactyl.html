@@ -32,30 +32,6 @@
 </head>
 <body class="font-inter">
 
-    <!-- PROJECT SEKAI STYLE LOADING SCREEN -->
-    <div id="proseka-loader" class="fixed inset-0 bg-[#f4f7f6] z-[9999] flex flex-col justify-between items-center py-12 overflow-hidden transition-opacity duration-500">
-        <div class="proseka-bg-pattern"></div>
-        <div class="flex-1 flex flex-col justify-center items-center relative z-10 animate-fade-in-up">
-            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-pink-500 via-cyan-400 to-blue-500 flex items-center justify-center shadow-xl shadow-cyan-200/50 mb-4 tracking-wider animate-bounce-slow">
-                <i data-lucide="sparkles" class="w-10 h-10 text-white"></i>
-            </div>
-            <h2 class="font-extrabold text-2xl text-slate-700 tracking-widest">YUKI STORE</h2>
-            <div class="h-[3px] w-12 bg-cyan-400 mt-2 rounded-full"></div>
-        </div>
-        <div class="w-full max-w-xs px-6 relative z-10">
-            <div class="flex justify-between items-end mb-2">
-                <div class="text-xs font-bold text-slate-400 tracking-wider flex items-center gap-1">
-                    <span>NOW LOADING</span>
-                    <span class="dot-bounce">.</span><span class="dot-bounce [animation-delay:0.2s]">.</span><span class="dot-bounce [animation-delay:0.4s]">.</span>
-                </div>
-                <div id="loader-percentage" class="text-sm font-black text-pink-500 italic tracking-tighter">0%</div>
-            </div>
-            <div class="w-full h-[6px] bg-slate-200 rounded-full overflow-hidden p-[1px]">
-                <div id="loader-progress-bar" class="w-0 h-full bg-gradient-to-r from-pink-500 to-rose-400 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.6)] transition-all duration-100 ease-out"></div>
-            </div>
-        </div>
-    </div>
-
     <aside id="sidebar">
         <div class="sidebar-brand">
             <div class="flex items-center gap-3">
@@ -89,14 +65,7 @@
             </a>
         </nav>
         <div class="sidebar-footer">
-            <div class="uptime-card">
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="status-pulse"></span>
-                    <span class="text-[11px] font-semibold text-emerald-700">Server Uptime</span>
-                </div>
-                <p class="text-xl font-bold text-emerald-600">99.9%</p>
-                <p class="text-[10px] text-emerald-500 mt-0.5">Semua sistem berjalan lancar</p>
-            </div>
+            <!-- THEME TOGGLE (di atas uptime) -->
             <div class="theme-toggle-wrap">
                 <span class="theme-toggle-label">Terang</span>
                 <label class="theme-toggle">
@@ -104,6 +73,16 @@
                     <span class="theme-toggle-slider"></span>
                 </label>
                 <span class="theme-toggle-label">Gelap</span>
+            </div>
+    
+            <!-- UPTIME CARD -->
+            <div class="uptime-card">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="status-pulse"></span>
+                    <span class="text-[11px] font-semibold text-emerald-700">Server Uptime</span>
+                </div>
+                <p class="text-xl font-bold text-emerald-600">99.9%</p>
+                <p class="text-[10px] text-emerald-500 mt-0.5">Semua sistem berjalan lancar</p>
             </div>
         </div>
     </aside>
@@ -117,8 +96,11 @@
             </div>
             <span class="font-bold text-[var(--text-primary)] text-sm">YUKI STORE</span>
         </div>
-        <button id="menu-toggle" class="p-2 rounded-xl hover:bg-slate-100 transition-colors">
-            <i data-lucide="menu" class="w-5 h-5 text-slate-600"></i>
+        <!-- HAMBURGER 3 GARIS → X -->
+        <button id="menu-toggle" class="hamburger p-2 rounded-xl hover:bg-slate-100 transition-colors">
+            <span></span>
+            <span></span>
+            <span></span>
         </button>
     </div>
 
