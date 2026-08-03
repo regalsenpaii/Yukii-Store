@@ -54,6 +54,7 @@ let analyser = null;
 let source = null;
 let dataArray = null;
 let vizFrameId = null;
+let audioErrorFired = false;
 
 // --- 5. UTILITIES ---
 function formatRupiah(price) {
@@ -311,7 +312,7 @@ function initSpotify() {
         await searchSpotify(q);
     });
 
-    // Download by URL form
+    // Download by URL form → Show info modal first
     const dlForm = document.getElementById('spotify-dl-form');
     if (dlForm) {
         dlForm.addEventListener('submit', async (e) => {
@@ -325,19 +326,23 @@ function initSpotify() {
             const submitBtn = dlForm.querySelector('button[type="submit"]');
             const originalText = submitBtn ? submitBtn.innerHTML : 'Unduh';
             if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '⏳'; }
-            showToast('Proses', 'Mengambil link download...', 'success');
+            showToast('Proses', 'Mengambil info lagu...', 'success');
 
             try {
                 const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(url)}`);
                 const data = await res.json();
 
-                if (data.status && data.result && data.result.download) {
-                    window.open(data.result.download, '_blank');
-                    showToast('Sukses', 'Download dimulai!', 'success');
-                } else {
-                    showToast('Error', 'Gagal mendapatkan link download.', 'error');
+                if (!data.status || !data.result) {
+                    showToast('Error', 'Gagal mengambil info lagu.', 'error');
+                    return;
                 }
+
+                // Show info modal with download button
+                const result = data.result;
+                showDownloadInfoModal(result, url);
+
             } catch (e) {
+                console.error('[DL Form] Error:', e);
                 showToast('Error', 'Gagal: ' + e.message, 'error');
             } finally {
                 if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
@@ -939,43 +944,72 @@ function pauseAudio() {
     document.querySelectorAll('.track-row .btn-play-sm').forEach(btn => btn.innerHTML = IC_PLAY);
 }
 
-function playSpotify(url, title, artist, cover) {
+async function playSpotify(url, title, artist, cover) {
     console.log('[Play] playSpotify called with URL:', url ? url.substring(0, 80) : 'EMPTY');
 
     if (!url) {
-        console.error('[Play] URL is empty/undefined');
         showToast('Error', 'URL audio kosong.', 'error');
         return;
     }
     if (!url.startsWith('http')) {
-        console.error('[Play] Invalid audio URL:', url);
-        showToast('Error', 'URL audio tidak valid: ' + url.substring(0, 50), 'error');
+        showToast('Error', 'URL audio tidak valid.', 'error');
         return;
     }
 
     const player = document.getElementById('audio-player');
-    let audio = document.getElementById('audio-element');
+    const audio = document.getElementById('audio-element');
     const playBtn = document.getElementById('player-play');
     const titleEl = document.getElementById('player-title');
     const artistEl = document.getElementById('player-artist');
     const coverEl = document.getElementById('player-cover');
 
     if (!audio) {
-        console.error('[Play] Audio element NOT FOUND in DOM');
         showToast('Error', 'Audio player tidak ditemukan.', 'error');
         return;
     }
+
+    // Reset error flag
+    audioErrorFired = false;
 
     currentAudioUrl = url;
     if (titleEl) titleEl.textContent = title || 'Unknown';
     if (artistEl) artistEl.textContent = artist || 'Unknown';
     if (coverEl) { coverEl.src = cover || ''; coverEl.classList.remove('hidden'); }
 
-    // ALWAYS set src fresh (don't compare, just set)
-    console.log('[Play] Setting audio.src to:', url.substring(0, 80));
-    audio.crossOrigin = 'anonymous';
-    audio.src = url;
-    audio.load();
+    showToast('Proses', 'Memuat audio...', 'success');
+
+    // Try to fetch audio as blob first (handles redirects and CORS better)
+    try {
+        console.log('[Play] Fetching audio blob...');
+        const response = await fetch(url, { 
+            method: 'GET',
+            headers: { 'Accept': 'audio/*,*/*' }
+        });
+
+        if (!response.ok) {
+            throw new Error('HTTP ' + response.status);
+        }
+
+        const blob = await response.blob();
+        console.log('[Play] Blob received:', blob.type, blob.size, 'bytes');
+
+        if (blob.size === 0) {
+            throw new Error('File audio kosong');
+        }
+
+        const blobUrl = URL.createObjectURL(blob);
+        console.log('[Play] Blob URL created');
+
+        audio.src = blobUrl;
+        audio.load();
+
+    } catch (fetchErr) {
+        console.warn('[Play] Blob fetch failed:', fetchErr.message, '- falling back to direct URL');
+        // Fallback: try direct URL (might work with some URLs)
+        audio.crossOrigin = 'anonymous';
+        audio.src = url;
+        audio.load();
+    }
 
     initVisualizer();
 
@@ -984,7 +1018,7 @@ function playSpotify(url, title, artist, cover) {
 
     if (playPromise !== undefined) {
         playPromise.then(() => {
-            console.log('[Play] ✅ Playback started successfully');
+            console.log('[Play] ✅ Playback started');
             isPlaying = true;
             if (player) {
                 player.classList.add('show');
@@ -1000,7 +1034,10 @@ function playSpotify(url, title, artist, cover) {
             } catch (e) { console.log('[Play] Visualizer error:', e); }
         }).catch((err) => {
             console.error('[Play] ❌ Playback failed:', err.name, err.message);
-            showToast('Error', 'Gagal memutar: ' + (err.message || 'CORS/Format error'), 'error');
+            if (!audioErrorFired) {
+                audioErrorFired = true;
+                showToast('Error', 'Gagal memutar audio. Coba download saja.', 'error');
+            }
             if (player) player.classList.remove('show');
         });
     }
@@ -1026,7 +1063,10 @@ function playSpotify(url, title, artist, cover) {
                         startVisualizer();
                     } catch (e) {}
                 }).catch((err) => {
-                    showToast('Error', 'Gagal resume: ' + err.message, 'error');
+                    if (!audioErrorFired) {
+                        audioErrorFired = true;
+                        showToast('Error', 'Gagal resume: ' + err.message, 'error');
+                    }
                 });
             }
         };
@@ -1042,18 +1082,21 @@ function playSpotify(url, title, artist, cover) {
         if (playBtn) playBtn.classList.remove('player-pulse');
         stopVisualizer();
     };
+
     audio.onerror = (e) => {
+        if (audioErrorFired) return; // Prevent spam
+        audioErrorFired = true;
         console.error('[Audio] ❌ Error code:', audio.error?.code, 'message:', audio.error?.message);
-        let errMsg = 'Error audio';
+        let errMsg = 'Format audio tidak didukung browser';
         if (audio.error) {
             switch(audio.error.code) {
                 case 1: errMsg = 'Aborted'; break;
-                case 2: errMsg = 'Network error - CORS mungkin'; break;
+                case 2: errMsg = 'Network error'; break;
                 case 3: errMsg = 'Decode error - format tidak didukung'; break;
-                case 4: errMsg = 'Source not supported'; break;
+                case 4: errMsg = 'Source not supported - coba download saja'; break;
             }
         }
-        showToast('Error', 'Audio error: ' + errMsg, 'error');
+        showToast('Error', 'Audio: ' + errMsg, 'error');
         closePlayer();
     };
 
@@ -1072,6 +1115,88 @@ function closePlayer() {
     if (btn) btn.classList.remove('player-pulse');
     
     document.querySelectorAll('.track-row .btn-play-sm').forEach(btn => btn.innerHTML = IC_PLAY);
+}
+
+// --- NEW: Download Info Modal ---
+function showDownloadInfoModal(result, spotifyUrl) {
+    let modal = document.getElementById('dl-info-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'dl-info-modal';
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '110';
+        modal.innerHTML = `
+            <div class="modal-backdrop" onclick="closeDownloadInfoModal()"></div>
+            <div class="modal-content" style="max-width:420px;">
+                <div class="sticky top-0 bg-[var(--modal-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between z-10 rounded-t-3xl">
+                    <div class="flex items-center gap-2">
+                        <span>${SPOTIFY_LOGO}</span>
+                        <h3 class="font-bold text-[var(--text-primary)]">Info Lagu</h3>
+                    </div>
+                    <button onclick="closeDownloadInfoModal()" class="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="flex items-center gap-4">
+                        <img id="dl-info-cover" src="" alt="Cover" class="w-20 h-20 rounded-xl object-cover shadow-md" onerror="this.style.display='none'">
+                        <div>
+                            <h4 id="dl-info-title" class="font-bold text-[var(--text-primary)] text-lg"></h4>
+                            <p id="dl-info-artist" class="text-sm text-[var(--text-secondary)]"></p>
+                            <p id="dl-info-album" class="text-xs text-[var(--text-muted)] mt-1"></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)]">
+                            <p class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Durasi</p>
+                            <p id="dl-info-duration" class="font-semibold text-[var(--text-primary)] text-sm"></p>
+                        </div>
+                        <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)]">
+                            <p class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Format</p>
+                            <p class="font-semibold text-[var(--text-primary)] text-sm">MP3</p>
+                        </div>
+                    </div>
+                    <button id="dl-info-download-btn" class="btn-primary btn-emerald w-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download MP3
+                    </button>
+                    <button onclick="closeDownloadInfoModal()" class="w-full py-2.5 rounded-xl border border-[var(--border-color)] text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] transition-colors">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    document.getElementById('dl-info-cover').src = result.image || '';
+    document.getElementById('dl-info-title').textContent = result.title || 'Unknown';
+    document.getElementById('dl-info-artist').textContent = result.artist || 'Unknown';
+    document.getElementById('dl-info-album').textContent = result.album || '-';
+    document.getElementById('dl-info-duration').textContent = result.duration || '0:00';
+
+    const dlBtn = document.getElementById('dl-info-download-btn');
+    dlBtn.onclick = () => {
+        if (result.download) {
+            window.open(result.download, '_blank');
+            showToast('Sukses', 'Download dimulai!', 'success');
+        } else {
+            showToast('Error', 'Link download tidak tersedia.', 'error');
+        }
+    };
+
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDownloadInfoModal() {
+    const modal = document.getElementById('dl-info-modal');
+    if (modal) modal.classList.remove('active');
+    if (!document.getElementById('invoice-modal')?.classList.contains('active') 
+        && !document.getElementById('lyrics-modal')?.classList.contains('active')
+        && !document.getElementById('track-detail')?.classList.contains('active')) {
+        document.body.style.overflow = '';
+    }
 }
 
 // --- 15. KEYBOARD ---
