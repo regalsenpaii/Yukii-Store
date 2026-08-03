@@ -1263,8 +1263,10 @@ function closePlayer() {
     document.querySelectorAll('.track-row .btn-play-sm').forEach(btn => btn.innerHTML = IC_PLAY);
 }
 
-// --- NEW: Download Info Modal ---
+// --- NEW: Download Info Modal (FIXED) ---
 function showDownloadInfoModal(result, spotifyUrl) {
+    console.log('[Download Info] Received result:', result);
+    
     let modal = document.getElementById('dl-info-modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -1273,19 +1275,19 @@ function showDownloadInfoModal(result, spotifyUrl) {
         modal.style.zIndex = '110';
         modal.innerHTML = `
             <div class="modal-backdrop" onclick="closeDownloadInfoModal()"></div>
-            <div class="modal-content" style="max-width:420px;">
-                <div class="sticky top-0 bg-[var(--modal-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between z-10 rounded-t-3xl">
+            <div class="modal-content" style="max-width:420px;border-radius:28px;overflow:hidden;">
+                <div class="sticky top-0 bg-[var(--modal-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between z-10">
                     <div class="flex items-center gap-2">
                         <span>${SPOTIFY_LOGO}</span>
                         <h3 class="font-bold text-[var(--text-primary)]">Info Lagu</h3>
                     </div>
-                    <button onclick="closeDownloadInfoModal()" class="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <button onclick="closeDownloadInfoModal()" class="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
+                        ${IC_CLOSE}
                     </button>
                 </div>
                 <div class="p-6 space-y-4">
                     <div class="flex flex-col items-center text-center gap-3">
-                        <img id="dl-info-cover" src="" alt="Cover" class="w-32 h-32 rounded-2xl object-cover shadow-lg" onerror="this.src='https://via.placeholder.com/300x300/e2e8f0/94a3b8?text=Music';this.onerror=null;">
+                        <img id="dl-info-cover" src="" alt="Cover" class="w-36 h-36 rounded-2xl object-cover shadow-xl bg-[var(--input-bg)]" onerror="this.style.display='none'">
                         <div>
                             <h4 id="dl-info-title" class="font-bold text-[var(--text-primary)] text-lg"></h4>
                             <p id="dl-info-artist" class="text-sm text-[var(--text-secondary)]"></p>
@@ -1303,7 +1305,7 @@ function showDownloadInfoModal(result, spotifyUrl) {
                         </div>
                     </div>
                     <button id="dl-info-download-btn" class="btn-primary btn-emerald w-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        ${IC_DOWNLOAD}
                         Download MP3
                     </button>
                     <button onclick="closeDownloadInfoModal()" class="w-full py-2.5 rounded-xl border border-[var(--border-color)] text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] transition-colors">
@@ -1315,25 +1317,106 @@ function showDownloadInfoModal(result, spotifyUrl) {
         document.body.appendChild(modal);
     }
 
-    const coverImg = document.getElementById('dl-info-cover');
-    coverImg.src = result.image || '';
-    coverImg.style.display = 'block';
-
-    document.getElementById('dl-info-title').textContent = result.title || 'Unknown';
-    document.getElementById('dl-info-artist').textContent = result.artist || 'Unknown';
-    document.getElementById('dl-info-album').textContent = result.album || '-';
-    document.getElementById('dl-info-duration').textContent = result.duration || '0:00';
-
-    const dlBtn = document.getElementById('dl-info-download-btn');
-    dlBtn.onclick = () => {
-        if (result.download) {
-            window.open(result.download, '_blank');
-            showToast('Sukses', 'Download dimulai!', 'success');
-        } else {
-            showToast('Error', 'Link download tidak tersedia.', 'error');
+    // --- FIX: Extract data with multiple fallback paths ---
+    const title = result.title || result.name || result.track || result.song || 'Unknown Title';
+    const artist = result.artist || result.artists || result.artistName || result.artist_name || result.singer || 'Unknown Artist';
+    const album = result.album || result.albumName || result.album_name || result.collectionName || '-';
+    
+    // Fix duration: handle various formats
+    let duration = '0:00';
+    if (result.duration) {
+        if (typeof result.duration === 'string' && result.duration.includes(':')) {
+            duration = result.duration;
+        } else if (typeof result.duration === 'number') {
+            duration = formatDuration(result.duration);
+        } else if (typeof result.duration === 'string') {
+            const num = parseInt(result.duration, 10);
+            if (!isNaN(num)) duration = formatDuration(num);
         }
-    };
+    } else if (result.durationMs) {
+        duration = formatDuration(result.durationMs);
+    } else if (result.duration_ms) {
+        duration = formatDuration(result.duration_ms);
+    }
+    
+    // Fix image: try multiple possible keys
+    let image = result.image || result.cover || result.thumbnail || result.artwork || result.artworkUrl || result.coverArt || '';
+    if (!image && result.album && typeof result.album === 'object') {
+        image = result.album.image || result.album.cover || result.album.thumbnail || '';
+    }
+    if (!image && result.images && Array.isArray(result.images) && result.images.length > 0) {
+        image = result.images[0].url || result.images[0];
+    }
+    if (!image && result.coverArt && typeof result.coverArt === 'object') {
+        image = result.coverArt.url || result.coverArt.source || '';
+    }
+    if (!image && result.artwork && typeof result.artwork === 'object') {
+        image = result.artwork.url || result.artwork.source || '';
+    }
+    
+    // Fix download URL
+    let downloadUrl = result.download || result.url || result.link || result.audio || result.audio_url || result.file || '';
+    if (!downloadUrl && result.result) {
+        downloadUrl = result.result.download || result.result.url || result.result.link || '';
+    }
+    
+    console.log('[Download Info] Extracted:', { title, artist, album, duration, image: image ? 'YES' : 'NO', downloadUrl: downloadUrl ? 'YES' : 'NO' });
 
+    // --- Populate modal ---
+    const coverImg = document.getElementById('dl-info-cover');
+    if (coverImg) {
+        if (image) {
+            coverImg.src = image;
+            coverImg.style.display = 'block';
+        } else {
+            coverImg.style.display = 'none';
+        }
+    }
+
+    const titleEl = document.getElementById('dl-info-title');
+    if (titleEl) titleEl.textContent = title;
+
+    const artistEl = document.getElementById('dl-info-artist');
+    if (artistEl) artistEl.textContent = artist;
+
+    const albumEl = document.getElementById('dl-info-album');
+    if (albumEl) albumEl.textContent = album;
+
+    const durationEl = document.getElementById('dl-info-duration');
+    if (durationEl) durationEl.textContent = duration;
+
+    // --- Fix download button ---
+    const dlBtn = document.getElementById('dl-info-download-btn');
+    if (dlBtn) {
+        dlBtn.onclick = function(e) {
+            e.preventDefault();
+            if (downloadUrl) {
+                // Try to open download
+                console.log('[Download Info] Downloading:', downloadUrl);
+                window.open(downloadUrl, '_blank');
+                showToast('Sukses', 'Download dimulai!', 'success');
+            } else {
+                showToast('Error', 'Link download tidak tersedia.', 'error');
+                // Try to get fresh download
+                if (spotifyUrl) {
+                    showToast('Proses', 'Mencoba mengambil ulang...', 'success');
+                    fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(spotifyUrl)}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status && data.result && data.result.download) {
+                                window.open(data.result.download, '_blank');
+                                showToast('Sukses', 'Download dimulai!', 'success');
+                            } else {
+                                showToast('Error', 'Gagal mendapatkan link download.', 'error');
+                            }
+                        })
+                    }    .catch(() => showToast('Error', 'Gagal memuat ulang.', 'error'));
+                }
+            }
+        };
+    }
+
+    // Show modal
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
 }
