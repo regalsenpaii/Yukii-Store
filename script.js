@@ -92,17 +92,98 @@ function isPage(name) {
     return window.location.pathname.includes(name);
 }
 
-// --- 5b. NORMALIZE DOWNLOAD RESULT (FIX THUMBNAIL & DURATION) ---
+// --- 5b. EXTRACT & NORMALIZE DOWNLOAD RESULT (ROBUST PARSING) ---
+function extractFirstImage(obj) {
+    if (!obj || typeof obj !== 'object') return '';
+    // Spotify-style album.images array
+    if (Array.isArray(obj.images) && obj.images[0]) {
+        if (typeof obj.images[0] === 'string') return obj.images[0];
+        if (obj.images[0].url) return obj.images[0].url;
+    }
+    if (Array.isArray(obj.image) && obj.image[0]) {
+        if (typeof obj.image[0] === 'string') return obj.image[0];
+        if (obj.image[0].url) return obj.image[0].url;
+    }
+    if (Array.isArray(obj.thumbnail) && obj.thumbnail[0]) {
+        if (typeof obj.thumbnail[0] === 'string') return obj.thumbnail[0];
+    }
+    return '';
+}
+
+function extractDownloadResult(data) {
+    // Handle passthrough responses from various APIs
+    if (!data || typeof data !== 'object') return null;
+
+    let raw = null;
+
+    // Case 1: { status: true, result: {...} }
+    if (data.result !== undefined) {
+        raw = data.result;
+    }
+    // Case 2: { status: true, data: {...} }
+    else if (data.data !== undefined) {
+        raw = data.data;
+    }
+    // Case 3: direct object
+    else {
+        raw = data;
+    }
+
+    // If array, take first item
+    if (Array.isArray(raw) && raw.length > 0) {
+        raw = raw[0];
+    }
+    if (!raw || typeof raw !== 'object') return null;
+
+    // Handle nested metadata/info/track structures
+    const candidates = [raw];
+    if (raw.metadata && typeof raw.metadata === 'object') candidates.push(raw.metadata);
+    if (raw.info && typeof raw.info === 'object') candidates.push(raw.info);
+    if (raw.track && typeof raw.track === 'object') candidates.push(raw.track);
+    if (raw.data && typeof raw.data === 'object') candidates.push(raw.data);
+    if (raw.result && typeof raw.result === 'object') candidates.push(raw.result);
+
+    // Merge all candidates into one flat object (priority: first = outermost)
+    let merged = {};
+    for (let i = candidates.length - 1; i >= 0; i--) {
+        merged = { ...candidates[i], ...merged };
+    }
+
+    return merged;
+}
+
 function normalizeDownloadResult(raw) {
     if (!raw || typeof raw !== 'object') return {};
-    return {
-        title: raw.title || raw.name || raw.trackName || raw.track || 'Unknown',
-        artist: raw.artist || raw.artists || raw.artistName || raw.artist_name || 'Unknown',
-        album: raw.album || raw.collectionName || raw.albumName || raw.album_name || '-',
-        image: raw.image || raw.thumbnail || raw.cover || raw.artwork || raw.artworkUrl || raw.artwork_url || raw.picture || raw.img || '',
-        duration: raw.duration || raw.duration_ms || raw.durationMs || raw.length || raw.trackDuration || raw.time || raw.timelength || '0:00',
-        download: raw.download || raw.url || raw.link || raw.audio || raw.audio_url || raw.file || raw.direct || raw.downloadUrl || raw.download_url || ''
-    };
+
+    const title = raw.title || raw.name || raw.trackName || raw.track || raw.song || raw.songName || raw.song_name || 'Unknown';
+    const artist = raw.artist || raw.artists || raw.artistName || raw.artist_name || raw.author || raw.creator || raw.performer || 'Unknown';
+    const album = raw.album || raw.collectionName || raw.albumName || raw.album_name || raw.collection || '-';
+
+    // Image extraction with many fallbacks
+    let image = raw.image || raw.thumbnail || raw.cover || raw.artwork || raw.artworkUrl || raw.artwork_url || raw.picture || raw.img || raw.banner || raw.poster || '';
+    if (!image && raw.album && typeof raw.album === 'object') {
+        image = raw.album.image || raw.album.cover || raw.album.thumbnail || raw.album.artwork || extractFirstImage(raw.album);
+    }
+    if (!image && raw.images) image = extractFirstImage(raw);
+    if (!image && raw.thumbnails && typeof raw.thumbnails === 'object') {
+        image = raw.thumbnails.default?.url || raw.thumbnails.medium?.url || raw.thumbnails.high?.url || raw.thumbnails.standard?.url || raw.thumbnails.maxres?.url || '';
+    }
+
+    // Duration extraction
+    let duration = raw.duration || raw.duration_ms || raw.durationMs || raw.length || raw.trackDuration || raw.time || raw.timelength || raw.durationText || raw.durationStr || '0:00';
+    if (typeof duration === 'number') duration = formatDuration(duration);
+
+    // Download link extraction
+    let download = raw.download || raw.url || raw.link || raw.audio || raw.audio_url || raw.file || raw.direct || raw.downloadUrl || raw.download_url || raw.source || raw.stream || raw.streamUrl || raw.stream_url || raw.media || raw.mediaUrl || raw.media_url || '';
+    // Some APIs nest download under formats
+    if (!download && raw.formats && Array.isArray(raw.formats) && raw.formats[0]) {
+        download = raw.formats[0].url || raw.formats[0].download || raw.formats[0].audio || '';
+    }
+    if (!download && raw.links && Array.isArray(raw.links) && raw.links[0]) {
+        download = raw.links[0].url || raw.links[0].download || '';
+    }
+
+    return { title, artist, album, image, duration, download };
 }
 
 // --- ANIMASI BRAND YUKI STORE (EFEK SAPU OMBAK & FALL FROM TOP) ---
@@ -497,13 +578,14 @@ function initSpotify() {
                 const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(url)}`);
                 const data = await res.json();
 
-                if (!data.status || !data.result) {
+                // === ROBUST: Extract & normalize ===
+                const extracted = extractDownloadResult(data);
+                if (!extracted) {
                     showToast('Error', 'Gagal mengambil info lagu.', 'error');
                     return;
                 }
 
-                // Normalize result sebelum ditampilkan
-                const result = normalizeDownloadResult(data.result);
+                const result = normalizeDownloadResult(extracted);
                 showDownloadInfoModal(result, url);
 
             } catch (e) {
@@ -745,22 +827,21 @@ async function fetchAndPlayTrack(enc) {
         }
 
         const data = await res.json();
-        console.log('[Play] Full response:', JSON.stringify(data, null, 2).substring(0, 800));
-        console.log('[Play] data.status:', data.status);
-        console.log('[Play] data.result:', data.result ? 'EXISTS' : 'MISSING');
+        console.log('[Play] Full response:', JSON.stringify(data, null, 2).substring(0, 1000));
 
-        if (!data.status || !data.result) {
-            console.error('[Play] Invalid response structure');
-            showToast('Error', 'Response server tidak valid.', 'error');
+        // === ROBUST: Extract & normalize seperti search ===
+        const extracted = extractDownloadResult(data);
+        if (!extracted) {
+            console.error('[Play] Could not extract result from response');
+            showToast('Error', 'Format response tidak dikenali.', 'error');
             return;
         }
 
-        // === FIX: Normalize result untuk handle berbagai nama field ===
-        const r = normalizeDownloadResult(data.result);
-        console.log('[Play] Normalized:', { title: r.title, artist: r.artist, image: r.image ? 'YES' : 'NO', duration: r.duration, download: r.download ? 'YES' : 'NO' });
+        const r = normalizeDownloadResult(extracted);
+        console.log('[Play] Normalized:', { title: r.title, artist: r.artist, image: r.image ? 'YES(' + r.image.substring(0, 60) + '...)' : 'NO', duration: r.duration, download: r.download ? 'YES' : 'NO' });
 
         if (!r.download) {
-            console.error('[Play] No valid download URL. Available keys:', Object.keys(data.result));
+            console.error('[Play] No valid download URL. Extracted keys:', Object.keys(extracted));
             showToast('Error', 'Link audio tidak ditemukan di response.', 'error');
             return;
         }
@@ -877,11 +958,12 @@ async function downloadFromDetail() {
         console.log('[Download] Fetching for:', currentTrackData.trackUrl);
         const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(currentTrackData.trackUrl)}`);
         const data = await res.json();
-        console.log('[Download] Response:', JSON.stringify(data).substring(0, 500));
+        console.log('[Download] Response:', JSON.stringify(data).substring(0, 800));
 
-        if (data.status && data.result) {
-            // === FIX: Normalize result ===
-            const r = normalizeDownloadResult(data.result);
+        // === ROBUST: Extract & normalize ===
+        const extracted = extractDownloadResult(data);
+        if (extracted) {
+            const r = normalizeDownloadResult(extracted);
 
             if (r.download) {
                 const a = document.createElement('a');
@@ -893,11 +975,11 @@ async function downloadFromDetail() {
                 document.body.removeChild(a);
                 showToast('Sukses', 'Download ' + r.title + ' dimulai!', 'success');
             } else {
-                console.error('[Download] No download URL. Keys:', Object.keys(data.result));
+                console.error('[Download] No download URL. Extracted keys:', Object.keys(extracted));
                 showToast('Error', 'Gagal mendapatkan link download.', 'error');
             }
         } else {
-            showToast('Error', 'Gagal mendapatkan link download.', 'error');
+            showToast('Error', 'Format response tidak dikenali.', 'error');
         }
     } catch (e) {
         console.error('[Download] Error:', e);
