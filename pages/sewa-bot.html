@@ -32,14 +32,19 @@
 </head>
 <body class="font-inter">
 
-    <aside id="sidebar">
+    <aside id="sidebar" class="overflow-x-hidden overflow-y-hidden max-w-full">
+        <!-- SIDEBAR BRAND (YUKI STORE) -->
         <div class="sidebar-brand">
-            <div class="flex items-center gap-3">
-                <div class="brand-icon">
+            <div id="sidebar-brand-click" class="flex items-center gap-3 cursor-pointer select-none group relative p-1.5 rounded-xl transition-all duration-300 hover:bg-[var(--hover-bg)]" title="Klik untuk efek ombak!">
+        
+                <!-- Icon Bintang -->
+                <div class="brand-icon transition-transform duration-300 group-hover:scale-110">
                     <i data-lucide="sparkles" class="w-5 h-5 text-white relative z-10"></i>
                 </div>
-                <div>
-                    <h1 class="font-bold text-[var(--text-primary)] text-sm tracking-wide">YUKI STORE</h1>
+        
+                <!-- Teks Brand Interaktif -->
+                <div class="relative overflow-hidden py-1">
+                    <h1 id="yuki-brand-text" class="font-bold text-[var(--text-primary)] text-sm tracking-wide transition-colors duration-300">YUKI STORE</h1>
                     <p class="text-[10px] text-[var(--text-muted)] font-semibold tracking-widest">DASHBOARD v1.0</p>
                 </div>
             </div>
@@ -64,18 +69,19 @@
                 <i data-lucide="image" class="nav-icon"></i><span>Pinterest Search</span>
             </a>
         </nav>
-        <div class="sidebar-footer">
-            <!-- THEME TOGGLE (di atas uptime) -->
-            <div class="theme-toggle-wrap">
-                <span class="theme-toggle-label">Terang</span>
-                <label class="theme-toggle">
-                    <input type="checkbox" id="theme-switch">
-                    <span class="theme-toggle-slider"></span>
-                </label>
-                <span class="theme-toggle-label">Gelap</span>
-            </div>
+        <div class="sidebar-footer space-y-4">
+        <!-- THEME TOGGLE (MODE TAMPILAN) -->
+        <div class="flex items-center justify-between p-3 rounded-xl bg-[var(--card-bg)] border border-[var(--border-color)]">
+            <span class="text-xs font-semibold text-[var(--text-primary)]">Mode Tampilan</span>
     
-            <!-- UPTIME CARD -->
+            <!-- Tombol Switch Animasi Telegram -->
+            <button id="theme-toggle" type="button" aria-label="Toggle Theme" class="theme-toggle-btn">
+                <i data-lucide="sun" class="sun-icon text-amber-500"></i>
+                <i data-lucide="moon" class="moon-icon text-blue-400"></i>
+            </button>
+        </div>
+
+            <!-- 2. UPTIME CARD (Otomatis terpisah jarak space-y-4) -->
             <div class="uptime-card">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="status-pulse"></span>
@@ -90,17 +96,23 @@
     <div id="mobile-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden lg:hidden"></div>
 
     <div class="mobile-header">
-        <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-400 flex items-center justify-center">
+        <!-- Tambahkan ID mobile-brand-click, class cursor-pointer, dan hover -->
+        <div id="mobile-brand-click" class="flex items-center gap-2 cursor-pointer select-none py-1 px-1.5 rounded-xl transition-all duration-300 hover:bg-[var(--hover-bg)]" title="Klik YUKI STORE!">
+        
+            <!-- Tambahkan class brand-icon agar ikonnya ikut animasi membal -->
+            <div class="brand-icon w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-400 flex items-center justify-center transition-transform duration-300">
                 <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
             </div>
-            <span class="font-bold text-[var(--text-primary)] text-sm">YUKI STORE</span>
+        
+            <!-- Pembungkus overflow-hidden & ID yuki-mobile-text agar teks tersapu ombak dengan rapi -->
+            <div class="relative overflow-hidden py-1">
+                <span id="yuki-mobile-text" class="font-bold text-[var(--text-primary)] text-sm block">YUKI STORE</span>
+            </div>
         </div>
-        <!-- HAMBURGER 3 GARIS → X -->
-        <button id="menu-toggle" class="hamburger p-2 rounded-xl hover:bg-slate-100 transition-colors">
-            <span></span>
-            <span></span>
-            <span></span>
+        <button id="menu-toggle" class="p-2.5 rounded-xl hover:bg-[var(--hover-bg)] transition-all duration-300 relative group flex flex-col justify-center items-center gap-1 w-10 h-10 overflow-hidden">
+            <span class="w-5 h-0.5 bg-[var(--text-primary)] rounded-full transition-all duration-300 transform origin-center bar-1"></span>
+            <span class="w-5 h-0.5 bg-[var(--text-primary)] rounded-full transition-all duration-300 bar-2"></span>
+            <span class="w-5 h-0.5 bg-[var(--text-primary)] rounded-full transition-all duration-300 transform origin-center bar-3"></span>
         </button>
     </div>
 
