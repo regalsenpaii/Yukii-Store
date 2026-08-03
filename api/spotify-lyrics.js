@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const { title } = req.query;
   if (!title) return res.status(400).json({ status: false, error: 'Title parameter is required' });
 
-  const apikey = process.env.ALIP_API_KEY;
+  const apikey = process.env.REGAL_API_KEY;
   if (!apikey) {
     console.error('[Proxy] REGAL_API_KEY missing');
     return res.status(500).json({ status: false, error: 'REGAL_API_KEY not configured' });
