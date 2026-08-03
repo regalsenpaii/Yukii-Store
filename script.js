@@ -4,9 +4,10 @@
    ========================================================================= */
 
 // --- 1. CORE & API CONFIGURATION ---
-// API Key disimpan di Vercel Environment Variable (REGAL_API_KEY)
+// API Key disimpan di Vercel Environment Variable (ALIP_API_KEY)
 // Client hanya hit endpoint /api/* (proxy serverless)
 const API_PROXY = {
+    spotifySearch: '/api/spotify-search',
     spotifyDownload: '/api/spotify-download',
     spotifyLyrics: '/api/spotify-lyrics',
     pinterest: '/api/pinterest'
@@ -319,22 +320,39 @@ function initSpotify() {
             if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '⏳ Memproses...'; }
             showToast('Proses', 'Mengambil link download...', 'success');
             try {
+                console.log('[Download] Requesting proxy for:', url);
                 const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(url)}`);
+                console.log('[Download] Proxy status:', res.status);
+
+                if (!res.ok) {
+                    const errText = await res.text();
+                    console.error('[Download] Proxy error:', errText.slice(0, 300));
+                    throw new Error('Proxy error: ' + res.status);
+                }
+
                 const data = await res.json();
-                const downloadUrl = data?.result?.download_url || data?.result?.url || data?.download_url || data?.url;
+                console.log('[Download] Response keys:', Object.keys(data));
+                console.log('[Download] Response:', JSON.stringify(data).slice(0, 500));
+
+                // Try many possible field paths
+                const downloadUrl = data?.result?.download_url 
+                    || data?.result?.url 
+                    || data?.result?.link
+                    || data?.data?.download_url
+                    || data?.data?.url
+                    || data?.download_url 
+                    || data?.url
+                    || data?.link;
+
                 if (downloadUrl) {
-                    const a = document.createElement('a');
-                    a.href = downloadUrl;
-                    a.target = '_blank';
-                    a.download = '';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    showToast('Sukses', 'Download dimulai!', 'success');
+                    window.open(downloadUrl, '_blank');
+                    showToast('Sukses', 'Download dimulai di tab baru!', 'success');
                 } else {
-                    showToast('Error', 'Gagal mendapatkan link download. Coba URL lain.', 'error');
+                    console.error('[Download] No download URL found in response');
+                    showToast('Error', 'Gagal mendapatkan link download. Response tidak memiliki URL.', 'error');
                 }
             } catch (err) {
+                console.error('[Download] Error:', err);
                 showToast('Error', 'Gagal mengambil link: ' + err.message, 'error');
             } finally {
                 if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
@@ -354,37 +372,60 @@ async function searchSpotify(query) {
     let tracks = [];
 
     try {
-        const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 15000);
-        const res = await fetch('https://api.nexray.web.id/search/spotify?q=' + encodeURIComponent(query), { signal: ctrl.signal });
-        clearTimeout(tid);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
+        console.log('[Spotify] Searching via proxy:', query);
+        const res = await fetch(`${API_PROXY.spotifySearch}?q=${encodeURIComponent(query)}`);
+        console.log('[Spotify] Proxy status:', res.status);
 
-        const rawTracks = data?.data || data?.result || (Array.isArray(data) ? data : []);
+        if (!res.ok) {
+            const errText = await res.text();
+            console.error('[Spotify] Proxy error:', errText.slice(0, 200));
+            throw new Error('Proxy HTTP ' + res.status);
+        }
+
+        const data = await res.json();
+        console.log('[Spotify] Response keys:', Object.keys(data));
+
+        // Try multiple possible response formats
+        let rawTracks = data?.data || data?.result || data?.results || (Array.isArray(data) ? data : []);
+
+        // If result is nested deeper
+        if (!Array.isArray(rawTracks) && data?.data?.tracks) rawTracks = data.data.tracks;
+        if (!Array.isArray(rawTracks) && data?.result?.tracks) rawTracks = data.result.tracks;
+
+        console.log('[Spotify] Raw tracks count:', rawTracks.length);
+
         if (rawTracks.length) {
-            tracks = rawTracks.map(item => ({
-                title: item.title || item.name || 'Unknown',
-                artist: item.artist || item.artists || 'Unknown',
-                album: item.album || '-',
-                image: item.image || item.thumbnail || item.cover || '',
-                thumb: item.thumbnail || item.image || item.cover || '',
-                url: item.url || item.preview_url || item.link || '',
-                duration: item.duration || item.duration_ms ? formatDuration(item.duration_ms || 0) : '0:00',
-                durationMs: item.duration_ms || 0,
-                genre: item.genre || 'Music'
-            }));
+            tracks = rawTracks.map((item, idx) => {
+                // Handle various API response field names
+                const title = item.title || item.name || item.trackName || 'Unknown';
+                const artist = item.artist || item.artists || item.artistName || 'Unknown';
+                const album = item.album || item.collectionName || item.albumName || '-';
+                const image = item.image || item.thumbnail || item.cover || item.artworkUrl || item.album?.cover || '';
+                const thumb = item.thumbnail || item.image || item.cover || item.artworkUrl || item.album?.cover || '';
+                const url = item.url || item.preview_url || item.link || item.previewUrl || '';
+                const durMs = item.duration_ms || item.durationMs || item.duration || 0;
+                const genre = item.genre || item.primaryGenreName || 'Music';
+
+                console.log(`[Spotify] Track ${idx}:`, title, '-', artist, '| URL:', url ? 'yes' : 'no');
+
+                return {
+                    title, artist, album, image, thumb, url,
+                    duration: durMs ? formatDuration(durMs) : '0:00',
+                    durationMs: durMs,
+                    genre
+                };
+            });
         }
     } catch (e) { 
-        console.log('Nexray fail', e.message);
+        console.error('[Spotify] Search failed:', e.message);
         if (loading) loading.classList.add('hidden');
-        if (results) results.innerHTML = errorHTML('Gagal mencari lagu. Coba lagi nanti.');
+        if (results) results.innerHTML = errorHTML('Gagal mencari lagu: ' + e.message + '. Cek console (F12) untuk detail.');
         return;
     }
 
     if (loading) loading.classList.add('hidden');
     if (!tracks.length) {
-        if (results) results.innerHTML = errorHTML('Tidak ada hasil. Coba kata kunci lain.');
+        if (results) results.innerHTML = errorHTML('Tidak ada hasil untuk "' + query + '". Coba kata kunci lain.');
         return;
     }
 
@@ -457,13 +498,14 @@ async function openLyricsModal(trackJson) {
 
     try {
         const query = encodeURIComponent(track.title + ' ' + track.artist);
-        const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 15000);
-        const res = await fetch(`${API_PROXY.spotifyLyrics}?title=${query}`, { signal: ctrl.signal });
-        clearTimeout(tid);
+        console.log('[Lyrics] Requesting:', track.title, '-', track.artist);
+        const res = await fetch(`${API_PROXY.spotifyLyrics}?title=${query}`);
+        console.log('[Lyrics] Proxy status:', res.status);
+
         if (res.ok) {
             const data = await res.json();
-            const lyrics = data?.result || data?.lyrics || data?.data?.lyrics || data?.data;
+            console.log('[Lyrics] Response keys:', Object.keys(data));
+            const lyrics = data?.result || data?.lyrics || data?.data?.lyrics || data?.data || data?.message;
             if (lyrics && typeof lyrics === 'string') {
                 document.getElementById('lyrics-body').textContent = lyrics;
             } else if (lyrics) {
@@ -472,9 +514,12 @@ async function openLyricsModal(trackJson) {
                 document.getElementById('lyrics-body').textContent = 'Lirik tidak ditemukan untuk lagu ini.';
             }
         } else {
+            const errText = await res.text();
+            console.error('[Lyrics] Proxy error:', errText.slice(0, 300));
             document.getElementById('lyrics-body').textContent = 'Gagal memuat lirik. Status: ' + res.status;
         }
     } catch (e) {
+        console.error('[Lyrics] Error:', e.message);
         document.getElementById('lyrics-body').textContent = 'Gagal memuat lirik. Error: ' + e.message;
     }
 }
@@ -622,25 +667,52 @@ async function searchPinterest(query) {
     let data = null;
 
     try {
-        const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 15000);
-        const res = await fetch(`${API_PROXY.pinterest}?q=${encodeURIComponent(query)}`, { signal: ctrl.signal });
-        clearTimeout(tid);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        console.log('[Pinterest] Searching via proxy:', query);
+        const res = await fetch(`${API_PROXY.pinterest}?q=${encodeURIComponent(query)}`);
+        console.log('[Pinterest] Proxy status:', res.status);
+
+        if (!res.ok) {
+            const errText = await res.text();
+            console.error('[Pinterest] Proxy error:', errText.slice(0, 300));
+            throw new Error('Proxy HTTP ' + res.status);
+        }
+
         data = await res.json();
+        console.log('[Pinterest] Response keys:', Object.keys(data));
     } catch (e) {
-        console.log('Pinterest proxy fail', e.message);
+        console.error('[Pinterest] Search failed:', e.message);
         if (loading) loading.classList.add('hidden');
-        if (results) results.innerHTML = errorHTML('Gagal memuat Pinterest. Coba lagi nanti.');
+        if (results) results.innerHTML = errorHTML('Gagal memuat Pinterest: ' + e.message + '. Cek console (F12) untuk detail.');
         return;
     }
 
     if (loading) loading.classList.add('hidden');
 
-    const rawResult = data?.result || data?.data || data;
-    const images = Array.isArray(rawResult) 
-        ? rawResult.filter(v => typeof v === 'string' && v.startsWith('http')).slice(0, 20)
-        : [];
+    // Try multiple possible response formats
+    let rawResult = data?.result || data?.data || data;
+
+    // If result is an object with images array
+    if (!Array.isArray(rawResult) && data?.result?.images) rawResult = data.result.images;
+    if (!Array.isArray(rawResult) && data?.data?.images) rawResult = data.data.images;
+
+    console.log('[Pinterest] Raw result type:', typeof rawResult, 'isArray:', Array.isArray(rawResult));
+
+    let images = [];
+    if (Array.isArray(rawResult)) {
+        images = rawResult
+            .map(v => {
+                // Handle both string URLs and object with url field
+                if (typeof v === 'string' && v.startsWith('http')) return v;
+                if (v && typeof v === 'object' && v.url) return v.url;
+                if (v && typeof v === 'object' && v.image) return v.image;
+                if (v && typeof v === 'object' && v.src) return v.src;
+                return null;
+            })
+            .filter(Boolean)
+            .slice(0, 20);
+    }
+
+    console.log('[Pinterest] Parsed images count:', images.length);
 
     if (!images.length) {
         if (results) results.innerHTML = `<div class="text-center py-10"><p class="text-sm text-[var(--text-muted)]">Tidak ada hasil untuk "${query}"</p></div>`;
