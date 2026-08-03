@@ -1,12 +1,17 @@
 /* =========================================================================
-   YUKI STORE v4.0 - FULL INTEGRATED SCRIPT
-   Dark Mode, Spotify & Pinterest via clutch.web.id API, Lyrics Inside Modal
+   YUKI STORE v3.6 - FULL INTEGRATED SCRIPT (CLIENT-SIDE)
+   Pinterest 2-Column Grid, Music Search, Visualizer, & GitHub CDN
+   FIX: Ganti Catbox CDN → Regal GitHub CDN (egasenpai/yuki-regal)
    ========================================================================= */
 
 // --- 1. CORE & API CONFIGURATION ---
-const API_BASE = '/api'; // Proxy routes via Vercel
+const API_CONFIG = (() => {
+    const base = atob('aHR0cHM6Ly9kb2NzLWFsaXAuY2x1dGNoLndlYi5pZA==');
+    const key = atob('YWxpcGFpYXBpa2V5YmFydQ==');
+    return { base, key };
+})();
 
-// --- 2. SVG ICONS ---
+// --- 2. SVG LOGOS & ICONS ---
 const SPOTIFY_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 168" width="18" height="18"><path fill="#1DB954" d="M84 0C37.8 0 0 37.8 0 84s37.8 84 84 84 84-37.8 84-84S130.2 0 84 0zm38.5 121.2c-1.5 2.5-4.7 3.2-7.1 1.7-19.5-11.9-44.1-14.6-73-8-2.8.6-5.6-1.1-6.2-3.9-.6-2.8 1.1-5.6 3.9-6.2 31.6-7.2 58.7-4.1 80.3 9.2 2.4 1.4 3.1 4.6 1.7 7.1zm10.3-22.9c-1.9 3-5.9 4-8.9 2.1-22.3-13.7-56.3-17.7-82.7-9.7-3.4 1-7-1-8-4.4s1-7 4.4-8c30.2-9.2 67.7-4.7 92.9 11.1 3.1 1.8 4.1 5.8 2.2 8.9zm.9-23.8c-26.8-15.9-71-17.4-96.5-9.6-4.1 1.2-8.4-1.1-9.6-5.2-1.2-4.1 1.1-8.4 5.2-9.6 29.3-8.9 78.1-7.2 108.7 11.1 3.7 2.2 4.9 6.9 2.7 10.6-2.2 3.6-6.9 4.9-10.5 2.7z"/></svg>`;
 const PINTEREST_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path fill="#E60023" d="M12 0C5.4 0 0 5.4 0 12c0 5.1 3.2 9.5 7.6 11.2-.1-1-.3-2.6.1-3.7.3-.8 1.7-5.4 1.7-5.4s-.4-.9-.4-2.1c0-2 1.2-3.5 2.6-3.5 1.2 0 1.8.9 1.8 2 0 1.2-.8 3-1.2 4.7-.3 1.4.7 2.5 2 2.5 2.4 0 4.2-2.5 4.2-6.1 0-3.2-2.3-5.4-5.5-5.4-3.8 0-6 2.8-6 5.7 0 1.1.4 2.3.9 3 .1.2.2.3.1.5l-.3 1.1c0 .2-.1.2-.3.1-1.2-.5-2-2.3-2-3.7 0-3 2.5-6.6 7.5-6.6 4 0 7.1 2.9 7.1 6.7 0 4.1-2.6 7.4-6.1 7.4-1.2 0-2.3-.6-2.7-1.3l-.7 2.8c-.3 1.1-1 2.5-1.5 3.3C9.5 23.8 10.7 24 12 24c6.6 0 12-5.4 12-12S18.6 0 12 0z"/></svg>`;
 
@@ -18,22 +23,20 @@ const IC_CLOCK = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
 const IC_MUSIC = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
 const IC_DISC = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>`;
 const IC_EXTERNAL = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
-const IC_LYRICS = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/></svg>`;
-const IC_LOADER = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
 
 // --- 3. DATA PRODUCTS ---
 const panelProducts = [
-    { id: 1, name: 'Panel 1GB', price: 2000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: '1GB' },
-    { id: 2, name: 'Panel 2GB', price: 3000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: '2GB' },
-    { id: 3, name: 'Panel 3GB', price: 4000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: '3GB' },
-    { id: 4, name: 'Panel 4GB', price: 5000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: '4GB' },
-    { id: 5, name: 'Panel 5GB', price: 6000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: '5GB' },
-    { id: 6, name: 'Panel 6GB', price: 7000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: '6GB' },
-    { id: 7, name: 'Panel 7GB', price: 8000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: '7GB' },
-    { id: 8, name: 'Panel 8GB', price: 9000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: '8GB' },
-    { id: 9, name: 'Panel 9GB', price: 10000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: '9GB' },
-    { id: 10, name: 'Panel 10GB', price: 11000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: '10GB' },
-    { id: 11, name: 'Panel UNLIMITED', price: 25000, specs: 'VPS R18 C4 • Aktif 30 Hari', ram: 'UNLIMITED' },
+    { id: 1, name: 'Panel 1GB', price: 2000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: '1GB' },
+    { id: 2, name: 'Panel 2GB', price: 3000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: '2GB' },
+    { id: 3, name: 'Panel 3GB', price: 4000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: '3GB' },
+    { id: 4, name: 'Panel 4GB', price: 5000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: '4GB' },
+    { id: 5, name: 'Panel 5GB', price: 6000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: '5GB' },
+    { id: 6, name: 'Panel 6GB', price: 7000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: '6GB' },
+    { id: 7, name: 'Panel 7GB', price: 8000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: '7GB' },
+    { id: 8, name: 'Panel 8GB', price: 9000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: '8GB' },
+    { id: 9, name: 'Panel 9GB', price: 10000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: '9GB' },
+    { id: 10, name: 'Panel 10GB', price: 11000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: '10GB' },
+    { id: 11, name: 'Panel UNLIMITED', price: 25000, specs: 'VPS R18 C4 \u2022 Aktif 30 Hari', ram: 'UNLIMITED' },
 ];
 
 // --- 4. GLOBAL APP STATES ---
@@ -42,7 +45,6 @@ let isPlaying = false;
 let currentPage = 'dashboard';
 let currentAudioUrl = '';
 let currentTrackData = null;
-let lyricsCache = {};
 let lastKickTime = 0;
 let kickEnergy = 0;
 let kickDecay = 0.92;
@@ -70,43 +72,246 @@ function initIcons() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-// --- 6. DARK MODE SYSTEM ---
-function initTheme() {
-    const saved = localStorage.getItem('yuki-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = saved ? saved === 'dark' : prefersDark;
-    setTheme(isDark);
+// --- 6. CORE APP STYLES INJECTION ---
+function injectStyles() {
+    if (document.getElementById('yuki-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'yuki-styles';
+    style.textContent = `
+        /* ===== Track List ===== */
+        .track-list { display: flex; flex-direction: column; gap: 8px; }
+        .track-row {
+            display: flex; align-items: center; gap: 14px;
+            padding: 12px 14px; border-radius: 14px;
+            background: rgba(255,255,255,0.6);
+            border: 1px solid rgba(226,232,240,0.6);
+            transition: all 0.2s ease; cursor: pointer;
+        }
+        .track-row:hover {
+            background: rgba(255,255,255,0.95);
+            border-color: rgba(16,185,129,0.2);
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        }
+        .track-thumb {
+            width: 52px; height: 52px; border-radius: 10px;
+            object-fit: cover; flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .track-info { flex: 1; min-width: 0; }
+        .track-title {
+            font-size: 0.875rem; font-weight: 700; color: #1e293b;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            line-height: 1.3;
+        }
+        .track-artist {
+            font-size: 0.75rem; color: #64748b; margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .track-meta-row {
+            display: flex; align-items: center; gap: 10px;
+            margin-top: 4px;
+        }
+        .track-meta {
+            font-size: 0.65rem; color: #94a3b8;
+            display: flex; align-items: center; gap: 3px;
+        }
+        .track-actions {
+            display: flex; align-items: center; gap: 8px;
+            flex-shrink: 0;
+        }
+        .btn-play-sm {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+            transition: all 0.15s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .btn-play-sm:hover { transform: scale(1.12); box-shadow: 0 6px 16px rgba(16,185,129,0.4); }
+        .btn-play-sm:active { transform: scale(0.92); }
+        .btn-info-sm {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(241,245,249,0.8); color: #64748b;
+            border: 1px solid rgba(226,232,240,0.8); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s ease;
+        }
+        .btn-info-sm:hover { background: white; color: #1e293b; border-color: #cbd5e1; }
 
-    const toggle = document.getElementById('theme-toggle');
-    if (toggle) {
-        toggle.addEventListener('click', () => {
-            const html = document.documentElement;
-            const nowDark = html.classList.contains('dark');
-            setTheme(!nowDark);
-        });
-    }
-}
+        /* ===== Track Detail Modal ===== */
+        .td-overlay {
+            position: fixed; inset: 0; z-index: 100;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px; opacity: 0; pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        .td-overlay.active { opacity: 1; pointer-events: all; }
+        .td-backdrop {
+            position: absolute; inset: 0;
+            background: rgba(15,23,42,0.55); backdrop-filter: blur(10px);
+        }
+        .td-card {
+            position: relative; background: white; border-radius: 20px;
+            width: 100%; max-width: 400px; max-height: 90vh;
+            overflow: hidden; box-shadow: 0 25px 60px -15px rgba(0,0,0,0.25);
+            transform: scale(0.92) translateY(16px);
+            transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .td-overlay.active .td-card { transform: scale(1) translateY(0); }
+        .td-cover-wrap {
+            position: relative; width: 100%; aspect-ratio: 1;
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+        }
+        .td-cover {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .td-cover-overlay {
+            position: absolute; inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%);
+        }
+        .td-close {
+            position: absolute; top: 12px; right: 12px; z-index: 10;
+            width: 34px; height: 34px; border-radius: 50%;
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(8px);
+            border: none; color: white; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .td-close:hover { background: rgba(0,0,0,0.6); transform: rotate(90deg); }
+        .td-body { padding: 24px; }
+        .td-title {
+            font-size: 1.15rem; font-weight: 800; color: #0f172a;
+            line-height: 1.3; margin-bottom: 4px;
+        }
+        .td-artist {
+            font-size: 0.9rem; color: #64748b; font-weight: 500;
+            margin-bottom: 16px;
+        }
+        .td-details {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 10px; margin-bottom: 20px;
+        }
+        .td-detail-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 12px; border-radius: 10px;
+            background: #f8fafc; border: 1px solid #f1f5f9;
+        }
+        .td-detail-item svg { color: #94a3b8; flex-shrink: 0; }
+        .td-detail-label {
+            font-size: 0.6rem; color: #94a3b8; text-transform: uppercase;
+            letter-spacing: 0.05em; font-weight: 600;
+        }
+        .td-detail-value {
+            font-size: 0.8rem; color: #334155; font-weight: 600;
+        }
+        .td-playbar {
+            display: flex; gap: 10px;
+        }
+        .td-btn-play {
+            flex: 1; padding: 13px 20px; border-radius: 12px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white; font-weight: 700; font-size: 0.85rem;
+            border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            box-shadow: 0 8px 20px -4px rgba(16,185,129,0.35);
+            transition: all 0.2s ease;
+        }
+        .td-btn-play:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px -4px rgba(16,185,129,0.45);
+        }
+        .td-btn-play:active { transform: translateY(0) scale(0.98); }
+        .td-btn-spotify {
+            padding: 13px 16px; border-radius: 12px;
+            background: #f1f5f9; color: #1e293b;
+            font-weight: 600; font-size: 0.8rem;
+            border: 1px solid #e2e8f0; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: all 0.2s ease; flex-shrink: 0;
+        }
+        .td-btn-spotify:hover { background: #e2e8f0; border-color: #cbd5e1; }
 
-function setTheme(isDark) {
-    const html = document.documentElement;
-    const toggle = document.getElementById('theme-toggle');
-    const icon = document.getElementById('theme-icon');
-    const label = document.getElementById('theme-label');
+        /* ===== Visualizer ===== */
+        .viz-wrap {
+            display: flex; align-items: flex-end; justify-content: center;
+            gap: 2px; height: 40px; width: 100%; padding: 0 16px;
+            margin-top: 6px;
+        }
+        .viz-bar {
+            width: 3px; border-radius: 99px; min-height: 2px;
+            background: linear-gradient(to top, #10b981, #34d399);
+            transition: height 0.04s ease-out, filter 0.08s ease, background 0.08s ease;
+            box-shadow: 0 0 0 rgba(0,0,0,0);
+        }
+        .viz-bar.kick {
+            background: linear-gradient(to top, #f59e0b, #ef4444) !important;
+            filter: drop-shadow(0 0 4px rgba(245,158,11,0.8)) drop-shadow(0 0 8px rgba(239,68,68,0.4));
+        }
+        .viz-bar.snare {
+            background: linear-gradient(to top, #3b82f6, #8b5cf6) !important;
+            filter: drop-shadow(0 0 3px rgba(59,130,246,0.6));
+        }
 
-    if (isDark) {
-        html.classList.add('dark');
-        localStorage.setItem('yuki-theme', 'dark');
-        if (toggle) toggle.classList.add('active');
-        if (icon) icon.setAttribute('data-lucide', 'sun');
-        if (label) label.textContent = 'Mode Terang';
-    } else {
-        html.classList.remove('dark');
-        localStorage.setItem('yuki-theme', 'light');
-        if (toggle) toggle.classList.remove('active');
-        if (icon) icon.setAttribute('data-lucide', 'moon');
-        if (label) label.textContent = 'Mode Gelap';
-    }
-    initIcons();
+        /* ===== PINTEREST GRID - 2 COLUMNS ===== */
+        .pin-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        @media (min-width: 640px) {
+            .pin-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+            }
+        }
+        @media (min-width: 1024px) {
+            .pin-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 14px;
+            }
+        }
+        .pin-card {
+            position: relative; border-radius: 14px; overflow: hidden;
+            cursor: pointer;
+            background: #f1f5f9;
+            break-inside: avoid;
+        }
+        .pin-card img {
+            width: 100%; height: auto; display: block;
+            transition: transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94);
+        }
+        .pin-card:hover img { transform: scale(1.08); }
+        .pin-card-overlay {
+            position: absolute; inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%);
+            opacity: 0; transition: opacity 0.25s ease;
+            display: flex; align-items: flex-end; justify-content: center;
+            padding: 14px;
+        }
+        .pin-card:hover .pin-card-overlay { opacity: 1; }
+        .pin-btn {
+            display: flex; align-items: center; gap: 6px;
+            background: white; color: #0f172a;
+            padding: 8px 14px; border-radius: 20px;
+            font-size: 0.75rem; font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(8px); opacity: 0;
+            transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .pin-card:hover .pin-btn { transform: translateY(0); opacity: 1; }
+
+        /* ===== Player Pulse ===== */
+        .player-pulse {
+            animation: playerPulse 2.2s infinite;
+        }
+        @keyframes playerPulse {
+            0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.35); }
+            60% { box-shadow: 0 0 0 14px rgba(16,185,129,0); }
+            100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 // --- 7. NAVIGATION SYSTEM ---
@@ -145,17 +350,17 @@ function renderPanelProducts() {
             <div class="glass-card group p-5 relative">
                 ${isPopular ? `<div class="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold shadow-md">POPULAR</div>` : ''}
                 <div class="flex items-center gap-3 mb-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-md shadow-blue-100 dark:shadow-blue-900/20">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-md shadow-blue-100">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
                     </div>
                     <div>
-                        <h3 class="font-bold text-sm section-title-text">${product.name}</h3>
+                        <h3 class="font-bold text-slate-800 text-sm">${product.name}</h3>
                         <p class="text-[10px] text-slate-400">${product.specs}</p>
                     </div>
                 </div>
                 <div class="flex items-end justify-between mb-4">
                     <div><p class="text-[10px] text-slate-400 mb-0.5">Harga</p><p class="text-lg font-bold text-blue-600">${formatRupiah(product.price)}</p></div>
-                    <div class="text-right"><p class="text-[10px] text-slate-400 mb-0.5">RAM</p><p class="text-sm font-semibold text-slate-600 dark:text-slate-300">${product.ram}</p></div>
+                    <div class="text-right"><p class="text-[10px] text-slate-400 mb-0.5">RAM</p><p class="text-sm font-semibold text-slate-600">${product.ram}</p></div>
                 </div>
                 <button onclick="openModal('${product.name}', ${product.price})" class="btn-primary w-full text-xs">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
@@ -189,6 +394,7 @@ function openModal(productName, price) {
 
 function closeModal() {
     const modal = document.getElementById('invoice-modal');
+    if (modal) modal.classList.remove('remove'); // Typo fix safe check
     if (modal) modal.classList.remove('active');
     document.body.style.overflow = '';
 }
@@ -231,7 +437,52 @@ function initSidebar() {
     }
 }
 
-// --- 9. INVOICE FORM HANDLING ---
+// --- 9. REGAL CDN GITHUB UPLOAD SYSTEM (SECURE PROXY VIA VERCEL API) ---
+async function uploadToMyCDNYuki(file) {
+    return new Promise((resolve) => {
+        if (!file) return resolve(null);
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+            try {
+                const base64Content = reader.result.split(',')[1];
+                
+                // Membuat nama file unik
+                const timestamp = Date.now();
+                const randomStr = Math.random().toString(36).substring(2, 8);
+                const fileExt = file.name.split('.').pop() || 'jpg';
+                const fileName = `Yuki${timestamp}_${randomStr}.${fileExt}`;
+
+                console.log('[Proxy API] Mengirim data ke repo yuki-chan...');
+
+                // PENTING: Gunakan path relatif agar otomatis mengikuti domain tempat web berada
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        fileName: fileName,
+                        base64Content: base64Content
+                    })
+                });
+
+                if (!response.ok) throw new Error('Server error: ' + response.status);
+
+                const resData = await response.json();
+                console.log('[Proxy API] Upload Berhasil!');
+                
+                // Kembalikan URL yang sudah rapi
+                resolve(resData.download_url);
+            } catch (e) {
+                console.error('[Proxy API] Gagal:', e.message);
+                resolve(null);
+            }
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+    });
+}
+
+// --- 10. INVOICE FORM HANDLING & WHATSAPP REDIRECT ---
 function initInvoiceForm() {
     const form = document.getElementById('invoice-form');
     if (!form) return;
@@ -259,7 +510,7 @@ function initInvoiceForm() {
             submitBtn.innerHTML = '⏳ Memproses...';
         }
 
-        showToast('Proses', 'Sedang mengunggah bukti transfer...', 'success');
+        showToast('Proses', 'Sedang mengunggah bukti transfer ke repo...', 'success');
 
         let cdnLink = null;
         let uploadError = null;
@@ -312,37 +563,6 @@ function initInvoiceForm() {
     });
 }
 
-async function uploadToMyCDNYuki(file) {
-    return new Promise((resolve) => {
-        if (!file) return resolve(null);
-        const reader = new FileReader();
-        reader.onload = async () => {
-            try {
-                const base64Content = reader.result.split(',')[1];
-                const timestamp = Date.now();
-                const randomStr = Math.random().toString(36).substring(2, 8);
-                const fileExt = file.name.split('.').pop() || 'jpg';
-                const fileName = `Yuki${timestamp}_${randomStr}.${fileExt}`;
-
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ fileName, base64Content })
-                });
-
-                if (!response.ok) throw new Error('Server error: ' + response.status);
-                const resData = await response.json();
-                resolve(resData.download_url);
-            } catch (e) {
-                console.error('[Proxy API] Gagal:', e.message);
-                resolve(null);
-            }
-        };
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(file);
-    });
-}
-
 function showToast(title, message, type = 'success') {
     const toast = document.getElementById('toast');
     const toastTitle = document.getElementById('toast-title');
@@ -353,16 +573,16 @@ function showToast(title, message, type = 'success') {
     toastMessage.textContent = message;
     if (type === 'error') {
         toastIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>';
-        toastIcon.className = 'w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0';
+        toastIcon.className = 'w-8 h-8 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0';
     } else {
         toastIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>';
-        toastIcon.className = 'w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center flex-shrink-0';
+        toastIcon.className = 'w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0';
     }
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 4000);
 }
 
-// --- 10. SPOTIFY SEARCH & TRACK DETAIL ---
+// --- 11. MUSIC SEARCH & TRACK PREVIEW DETAILS ---
 function openTrackDetail(track) {
     currentTrackData = track;
     let modal = document.getElementById('track-detail');
@@ -403,7 +623,7 @@ function openTrackDetail(track) {
                         <div class="td-detail-item">
                             <div style="display:flex;flex-direction:column;gap:2px;">
                                 <div class="td-detail-label">Sumber</div>
-                                <div class="td-detail-value" style="display:flex;align-items:center;gap:4px;">${SPOTIFY_LOGO}<span>Spotify</span></div>
+                                <div class="td-detail-value" style="display:flex;align-items:center;gap:4px;">${SPOTIFY_LOGO}<span>iTunes</span></div>
                             </div>
                         </div>
                     </div>
@@ -412,18 +632,9 @@ function openTrackDetail(track) {
                             <span id="td-icon">${IC_PLAY}</span>
                             <span id="td-text">Putar Preview</span>
                         </button>
-                        <button id="td-btn-lyrics" class="td-btn-lyrics" onclick="toggleLyrics()">
-                            ${IC_LYRICS} Lirik
-                        </button>
                         <button class="td-btn-spotify" onclick="window.open('https://www.google.com/search?q=' + encodeURIComponent(currentTrackData.title + ' ' + currentTrackData.artist), '_blank')">
                             ${IC_EXTERNAL} Cari
                         </button>
-                    </div>
-                    <div id="td-lyrics-section" class="td-lyrics-section" style="display:none;">
-                        <div class="td-lyrics-header">
-                            <div class="td-lyrics-title">${IC_LYRICS} Lirik Lagu</div>
-                        </div>
-                        <div id="td-lyrics-content" class="td-lyrics-content"></div>
                     </div>
                 </div>
             </div>
@@ -431,18 +642,12 @@ function openTrackDetail(track) {
         document.body.appendChild(modal);
     }
 
-    document.getElementById('td-cover').src = track.thumbnail || '';
+    document.getElementById('td-cover').src = track.image || '';
     document.getElementById('td-title').textContent = track.title || 'Unknown Title';
     document.getElementById('td-artist').textContent = track.artist || 'Unknown Artist';
     document.getElementById('td-dur').querySelector('span').textContent = track.duration || '0:00';
     document.getElementById('td-album').querySelector('span').textContent = track.album || '-';
     document.getElementById('td-genre').querySelector('span').textContent = track.genre || 'Music';
-
-    // Reset lyrics section
-    const lyricsSection = document.getElementById('td-lyrics-section');
-    const lyricsBtn = document.getElementById('td-btn-lyrics');
-    if (lyricsSection) lyricsSection.style.display = 'none';
-    if (lyricsBtn) lyricsBtn.classList.remove('active');
 
     updateDetailPlayState();
     modal.classList.add('active');
@@ -457,54 +662,8 @@ function closeTrackDetail() {
     }
 }
 
-async function toggleLyrics() {
-    const section = document.getElementById('td-lyrics-section');
-    const content = document.getElementById('td-lyrics-content');
-    const btn = document.getElementById('td-btn-lyrics');
-
-    if (!section || !content || !btn || !currentTrackData) return;
-
-    const isVisible = section.style.display !== 'none';
-
-    if (isVisible) {
-        section.style.display = 'none';
-        btn.classList.remove('active');
-        return;
-    }
-
-    btn.classList.add('active');
-    section.style.display = 'block';
-
-    const cacheKey = (currentTrackData.title + '_' + currentTrackData.artist).toLowerCase();
-
-    if (lyricsCache[cacheKey]) {
-        content.innerHTML = lyricsCache[cacheKey];
-        return;
-    }
-
-    content.innerHTML = `<div class="td-lyrics-loading">${IC_LOADER} Memuat lirik...</div>`;
-
-    try {
-        const title = encodeURIComponent(currentTrackData.title + ' ' + currentTrackData.artist);
-        const res = await fetch(`${API_BASE}/spotify-lyrics?title=${title}`);
-        const data = await res.json();
-
-        if (data.status && data.result) {
-            const lyricsText = data.result.plainLyrics || data.result.syncedLyrics || 'Lirik tidak tersedia.';
-            const html = lyricsText.replace(/\n/g, '<br>');
-            lyricsCache[cacheKey] = html;
-            content.innerHTML = html;
-        } else {
-            content.innerHTML = '<div class="td-lyrics-error">Lirik tidak ditemukan.</div>';
-        }
-    } catch (e) {
-        console.error('Lyrics error:', e);
-        content.innerHTML = '<div class="td-lyrics-error">Gagal memuat lirik. Coba lagi.</div>';
-    }
-}
-
 function updateDetailPlayState() {
-    const isThis = currentTrackData && isPlaying && currentAudioUrl === currentTrackData.downloadUrl;
+    const isThis = currentTrackData && isPlaying && currentAudioUrl === currentTrackData.url;
     const icon = document.getElementById('td-icon');
     const text = document.getElementById('td-text');
     if (icon) icon.innerHTML = isThis ? IC_PAUSE : IC_PLAY;
@@ -513,19 +672,22 @@ function updateDetailPlayState() {
 
 function toggleDetailPlay() {
     if (!currentTrackData) return;
-    if (!currentTrackData.downloadUrl) {
+    if (!currentTrackData.url) {
         showToast('Info', 'Preview tidak tersedia', 'error'); return;
     }
-    const isThis = isPlaying && currentAudioUrl === currentTrackData.downloadUrl;
+    const isThis = isPlaying && currentAudioUrl === currentTrackData.url;
     if (isThis) {
         pauseAudio();
     } else {
-        playSpotify(currentTrackData.downloadUrl, currentTrackData.title, currentTrackData.artist, currentTrackData.thumbnail);
+        playSpotify(currentTrackData.url, currentTrackData.title, currentTrackData.artist, currentTrackData.image);
     }
     updateDetailPlayState();
 }
 
 function initSpotify() {
+    const h = document.getElementById('spotify-header');
+    if (h) h.innerHTML = `${SPOTIFY_LOGO} <span style="margin-left:8px;font-weight:700;color:#0f172a;font-size:1.1rem;">Music Search</span>`;
+
     const form = document.getElementById('spotify-form');
     if (!form) return;
     form.addEventListener('submit', async (e) => {
@@ -539,64 +701,96 @@ function initSpotify() {
 async function searchSpotify(query) {
     const loading = document.getElementById('spotify-loading');
     const results = document.getElementById('spotify-results');
-    const empty = document.getElementById('spotify-empty');
-
     if (loading) loading.classList.remove('hidden');
     if (results) results.innerHTML = '';
-    if (empty) empty.classList.add('hidden');
+
+    let tracks = [];
+    let success = false;
 
     try {
-        const res = await fetch(`${API_BASE}/spotify-search?q=${encodeURIComponent(query)}`);
-        const data = await res.json();
-
-        if (loading) loading.classList.add('hidden');
-
-        if (!data.status || !data.result || data.result.length === 0) {
-            if (results) results.innerHTML = errorHTML('Tidak ada hasil. Coba kata kunci lain.');
-            return;
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 10000);
+        const res = await fetch('https://itunes.apple.com/search?term=' + encodeURIComponent(query) + '&entity=song&limit=12', { signal: ctrl.signal });
+        clearTimeout(tid);
+        if (res.ok) {
+            const data = await res.json();
+            if (data?.results?.length) {
+                tracks = data.results.map(item => ({
+                    title: item.trackName || 'Unknown',
+                    artist: item.artistName || 'Unknown',
+                    album: item.collectionName || '-',
+                    image: (item.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
+                    thumb: (item.artworkUrl100 || '').replace('100x100bb', '300x300bb'),
+                    url: item.previewUrl || '',
+                    duration: formatDuration(item.trackTimeMillis),
+                    durationMs: item.trackTimeMillis || 0,
+                    genre: item.primaryGenreName || 'Music'
+                }));
+                success = true;
+            }
         }
+    } catch (e) { console.log('iTunes fail', e.message); }
 
-        const tracks = data.result.slice(0, 12).map(item => ({
-            title: item.title || 'Unknown',
-            artist: item.artist || 'Unknown',
-            album: item.album || '-',
-            thumbnail: item.thumbnail || '',
-            url: item.url || '', // Spotify URL
-            downloadUrl: item.download || item.url || '', // Direct audio if available
-            duration: item.duration || '0:00',
-            genre: 'Music'
-        }));
+    if (!success) {
+        try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 10000);
+            const res = await fetch('https://api.deezer.com/search?q=' + encodeURIComponent(query) + '&limit=12', { signal: ctrl.signal });
+            clearTimeout(tid);
+            if (res.ok) {
+                const data = await res.json();
+                if (data?.data?.length) {
+                    tracks = data.data.map(item => ({
+                        title: item.title || 'Unknown',
+                        artist: item.artist?.name || 'Unknown',
+                        album: item.album?.title || '-',
+                        image: item.album?.cover_big || item.album?.cover_xl || item.album?.cover || '',
+                        thumb: item.album?.cover_big || item.album?.cover || '',
+                        url: item.preview || '',
+                        duration: formatDuration((item.duration || 0) * 1000),
+                        durationMs: (item.duration || 0) * 1000,
+                        genre: 'Music'
+                    }));
+                    success = true;
+                }
+            }
+        } catch (e) { console.log('Deezer fail', e.message); }
+    }
 
-        if (results) {
-            results.innerHTML = `<div class="track-list">` + tracks.map((track, i) => {
-                const tjson = encodeURIComponent(JSON.stringify(track));
-                return `
-                    <div class="track-row" data-id="${track.url}" onclick="openTrackDetailFromString('${tjson}')">
-                        <img class="track-thumb" src="${track.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='https://via.placeholder.com/300x300/e2e8f0/94a3b8?text=Music'">
-                        <div class="track-info">
-                            <div class="track-title">${track.title}</div>
-                            <div class="track-artist">${track.artist}</div>
-                            <div class="track-meta-row">
-                                <span class="track-meta" data-meta="duration">${IC_CLOCK} ${track.duration}</span>
-                                <span class="track-meta">${IC_DISC} ${track.album}</span>
-                            </div>
-                        </div>
-                        <div class="track-actions">
-                            <button class="btn-play-sm" onclick="event.stopPropagation(); quickPlayString('${tjson}')" title="Putar">
-                                ${IC_PLAY}
-                            </button>
-                            <button class="btn-info-sm" onclick="event.stopPropagation(); openTrackDetailFromString('${tjson}')" title="Detail">
-                                ${IC_INFO}
-                            </button>
+    if (loading) loading.classList.add('hidden');
+
+    if (!success || !tracks.length) {
+        if (results) results.innerHTML = errorHTML('Tidak ada hasil. Coba kata kunci lain.');
+        return;
+    }
+
+    if (results) {
+        results.innerHTML = `<div class="track-list">` + tracks.map((track, i) => {
+            const hasPreview = !!track.url;
+            const tjson = encodeURIComponent(JSON.stringify(track));
+            return `
+                <div class="track-row" data-id="${track.url}" onclick="openTrackDetailFromString('${tjson}')">
+                    <img class="track-thumb" src="${track.thumb || track.image || ''}" alt="" loading="lazy" onerror="this.src='https://via.placeholder.com/300x300/e2e8f0/94a3b8?text=Music'">
+                    <div class="track-info">
+                        <div class="track-title">${track.title}</div>
+                        <div class="track-artist">${track.artist}</div>
+                        <div class="track-meta-row">
+                            <span class="track-meta">${IC_CLOCK} ${track.duration}</span>
+                            <span class="track-meta">${IC_DISC} ${track.album}</span>
+                            <span class="track-meta">${IC_MUSIC} ${track.genre}</span>
                         </div>
                     </div>
-                `;
-            }).join('') + `</div>`;
-        }
-    } catch (e) {
-        console.error('Spotify search error:', e);
-        if (loading) loading.classList.add('hidden');
-        if (results) results.innerHTML = errorHTML('Gagal mencari lagu. Coba lagi nanti.');
+                    <div class="track-actions">
+                        <button class="btn-play-sm" onclick="event.stopPropagation(); quickPlayString('${tjson}')" title="${hasPreview ? 'Putar' : 'No Preview'}">
+                            ${hasPreview ? IC_PLAY : IC_INFO}
+                        </button>
+                        <button class="btn-info-sm" onclick="event.stopPropagation(); openTrackDetailFromString('${tjson}')" title="Detail">
+                            ${IC_INFO}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('') + `</div>`;
     }
 }
 
@@ -605,37 +799,23 @@ function openTrackDetailFromString(enc) {
     catch (e) { console.error(e); }
 }
 
-async function quickPlayString(enc) {
+function quickPlayString(enc) {
     try {
         const t = JSON.parse(decodeURIComponent(enc));
         if (!t.url) { showToast('Info', 'Preview tidak tersedia', 'error'); return; }
-
-        // Try to get download URL first
-        showToast('Proses', 'Mengambil audio...', 'success');
-        try {
-            const res = await fetch(`${API_BASE}/spotify-download?url=${encodeURIComponent(t.url)}`);
-            const data = await res.json();
-            if (data.status && data.result && data.result.download) {
-                playSpotify(data.result.download, t.title, t.artist, t.thumbnail);
-                return;
-            }
-        } catch (e) { console.log('Download fetch failed', e); }
-
-        // Fallback to direct URL if available
-        if (t.downloadUrl && t.downloadUrl !== t.url) {
-            playSpotify(t.downloadUrl, t.title, t.artist, t.thumbnail);
-        } else {
-            showToast('Info', 'Preview tidak tersedia untuk lagu ini', 'error');
-        }
+        playSpotify(t.url, t.title, t.artist, t.thumb || t.image);
     } catch (e) { console.error(e); }
 }
 
 function errorHTML(msg) {
-    return `<div class="text-center py-10"><div class="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-3"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></div><p class="text-sm text-slate-400">${msg}</p></div>`;
+    return `<div class="text-center py-10"><div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center mx-auto mb-3"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></div><p class="text-sm text-slate-400">${msg}</p></div>`;
 }
 
-// --- 11. PINTEREST COMPONENT HANDLER ---
+// --- 12. PINTEREST COMPONENT HANDLER ---
 function initPinterest() {
+    const h = document.getElementById('pinterest-header');
+    if (h) h.innerHTML = `${PINTEREST_LOGO} <span style="margin-left:8px;font-weight:700;color:#0f172a;font-size:1.1rem;">Pinterest Search</span>`;
+
     const form = document.getElementById('pinterest-form');
     if (!form) return;
     form.addEventListener('submit', async (e) => {
@@ -649,51 +829,62 @@ function initPinterest() {
 async function searchPinterest(query) {
     const loading = document.getElementById('pin-loading');
     const results = document.getElementById('pin-results');
-    const empty = document.getElementById('pin-empty');
-
     if (loading) loading.classList.remove('hidden');
     if (results) results.innerHTML = '';
-    if (empty) empty.classList.add('hidden');
+
+    let data = null, success = false;
+    const apiUrl = API_CONFIG.base + '/search/pinterest?apikey=' + API_CONFIG.key + '&q=' + encodeURIComponent(query);
 
     try {
-        const res = await fetch(`${API_BASE}/pinterest?q=${encodeURIComponent(query)}`);
-        const data = await res.json();
-
-        if (loading) loading.classList.add('hidden');
-
-        if (!data.status || !data.result || data.result.length === 0) {
-            if (results) results.innerHTML = errorHTML('Tidak ada hasil untuk "' + query + '"');
-            return;
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 10000);
+        const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(apiUrl), { signal: ctrl.signal });
+        clearTimeout(tid);
+        if (res.ok) {
+            const raw = await res.json();
+            if (raw?.contents) { data = JSON.parse(raw.contents); success = true; }
         }
+    } catch (e) { console.log('AllOrigins fail'); }
 
-        const images = data.result.filter(v => typeof v === 'string' && v.startsWith('http')).slice(0, 20);
+    if (!success) {
+        try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 10000);
+            const res = await fetch('https://corsproxy.io/?url=' + encodeURIComponent(apiUrl), { signal: ctrl.signal });
+            clearTimeout(tid);
+            if (res.ok) { data = await res.json(); success = true; }
+        } catch (e) { console.log('Fallback fail'); }
+    }
 
-        if (!images.length) {
-            if (results) results.innerHTML = errorHTML('Tidak ada gambar ditemukan.');
-            return;
-        }
+    if (loading) loading.classList.add('hidden');
 
-        if (results) {
-            results.innerHTML = `<div class="pin-grid">` + images.map((img, i) => `
-                <div class="pin-card" onclick="window.open('${img}', '_blank')">
-                    <img src="${img}" alt="Pinterest ${i+1}" loading="lazy" onerror="this.style.display='none'">
-                    <div class="pin-card-overlay">
-                        <div class="pin-btn">
-                            ${PINTEREST_LOGO}
-                            <span>Buka Gambar</span>
-                        </div>
+    if (!success || !data?.result?.length) {
+        if (results) results.innerHTML = errorHTML('Gagal memuat Pinterest. Coba lagi.');
+        return;
+    }
+
+    const images = data.result.filter(v => typeof v === 'string' && v.startsWith('http')).slice(0, 12);
+    if (!images.length) {
+        if (results) results.innerHTML = `<div class="text-center py-10"><p class="text-sm text-slate-400">Tidak ada hasil untuk "${query}"</p></div>`;
+        return;
+    }
+
+    if (results) {
+        results.innerHTML = `<div class="pin-grid">` + images.map((img, i) => `
+            <div class="pin-card" onclick="window.open('${img}', '_blank')">
+                <img src="${img}" alt="Pinterest ${i+1}" loading="lazy" onerror="this.style.display='none'">
+                <div class="pin-card-overlay">
+                    <div class="pin-btn">
+                        ${PINTEREST_LOGO}
+                        <span>Buka Gambar</span>
                     </div>
                 </div>
-            `).join('') + `</div>`;
-        }
-    } catch (e) {
-        console.error('Pinterest search error:', e);
-        if (loading) loading.classList.add('hidden');
-        if (results) results.innerHTML = errorHTML('Gagal memuat Pinterest. Coba lagi.');
+            </div>
+        `).join('') + `</div>`;
     }
 }
 
-// --- 12. AUDIO FREQUENCY VISUALIZER ---
+// --- 13. AUDIO FREQUENCY VISUALIZER (KICK & SNARE PULSE) ---
 function initVisualizer() {
     const player = document.getElementById('audio-player');
     if (!player) return;
@@ -708,8 +899,8 @@ function initVisualizer() {
             bar.style.height = '2px';
             wrap.appendChild(bar);
         }
-        const closeBtn = document.querySelector('#audio-player .flex.items-center.gap-2');
-        if (closeBtn) {
+        const closeBtn = document.getElementById('player-close');
+        if (closeBtn && closeBtn.parentNode) {
             closeBtn.parentNode.insertBefore(wrap, closeBtn);
         } else {
             player.appendChild(wrap);
@@ -788,6 +979,7 @@ function startVisualizer() {
             else baseHeight = 2 + percent * 18;
 
             bar.style.height = baseHeight + 'px';
+
             bar.className = 'viz-bar';
             if (isKick) bar.classList.add('kick');
             else if (isSnare) bar.classList.add('snare');
@@ -867,7 +1059,7 @@ function playSpotify(url, title, artist, cover) {
                 startVisualizer();
             } catch (e) { console.log('Visualizer error', e); }
         }).catch(() => {
-            showToast('Info', 'Gagal memutar audio', 'error');
+            showToast('Info', 'Preview tidak tersedia', 'error');
         });
     }
 
@@ -929,7 +1121,7 @@ function closePlayer() {
     document.querySelectorAll('.track-row .btn-play-sm').forEach(btn => btn.innerHTML = IC_PLAY);
 }
 
-// --- 13. KEYBOARD & CORE EVENT LISTENERS ---
+// --- 14. KEYBOARD & CORE EVENT LISTENERS ---
 function initKeyboard() {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { closeModal(); closePlayer(); closeTrackDetail(); }
@@ -937,7 +1129,7 @@ function initKeyboard() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
+    injectStyles();
     initIcons();
     initSidebar();
     initNavigation();
