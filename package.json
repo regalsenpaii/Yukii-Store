@@ -1,0 +1,17 @@
+{
+  "name": "yuki-store",
+  "version": "2.0.0",
+  "description": "Yuki Store Dashboard - Solusi digital terbaik",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "axios": "^1.7.2"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": "18.x"
+  }
+}
