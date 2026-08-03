@@ -62,12 +62,35 @@ function formatRupiah(price) {
     return 'Rp ' + price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-function formatDuration(ms) {
-    if (!ms || ms <= 0) return '0:00';
-    const s = Math.floor(ms / 1000);
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return m + ':' + (sec < 10 ? '0' : '') + sec;
+function formatDuration(input) {
+    // Handle null/undefined
+    if (!input && input !== 0) return '0:00';
+
+    // If already a formatted string like "3:45" or "03:45"
+    if (typeof input === 'string') {
+        const trimmed = input.trim();
+        if (/^\d{1,2}:\d{2}$/.test(trimmed)) return trimmed;
+        if (/^\d{1,2}:\d{2}:\d{2}$/.test(trimmed)) {
+            const parts = trimmed.split(':');
+            return parts[0] + ':' + parts[1];
+        }
+        // Try parse as number
+        const num = parseInt(trimmed, 10);
+        if (!isNaN(num)) input = num;
+        else return '0:00';
+    }
+
+    // If number
+    if (typeof input === 'number') {
+        if (isNaN(input) || input <= 0) return '0:00';
+        // If likely milliseconds (> 10000)
+        let seconds = input > 10000 ? Math.floor(input / 1000) : Math.floor(input);
+        const m = Math.floor(seconds / 60);
+        const sec = seconds % 60;
+        return m + ':' + (sec < 10 ? '0' : '') + sec;
+    }
+
+    return '0:00';
 }
 
 function initIcons() {
@@ -334,22 +357,61 @@ function initSpotify() {
                 console.log('[Download] Response keys:', Object.keys(data));
                 console.log('[Download] Response:', JSON.stringify(data).slice(0, 500));
 
-                // Try many possible field paths
-                const downloadUrl = data?.result?.download_url 
-                    || data?.result?.url 
-                    || data?.result?.link
-                    || data?.data?.download_url
-                    || data?.data?.url
-                    || data?.download_url 
-                    || data?.url
-                    || data?.link;
+                // Try MANY possible field paths from clutch API
+                let downloadUrl = null;
+                const checkPaths = [
+                    data?.result?.download_url,
+                    data?.result?.url,
+                    data?.result?.link,
+                    data?.result?.audio,
+                    data?.result?.audio_url,
+                    data?.result?.download,
+                    data?.result?.file,
+                    data?.result?.file_url,
+                    data?.result?.media,
+                    data?.result?.media_url,
+                    data?.result?.source,
+                    data?.result?.src,
+                    data?.data?.download_url,
+                    data?.data?.url,
+                    data?.data?.link,
+                    data?.data?.audio,
+                    data?.data?.audio_url,
+                    data?.download_url,
+                    data?.url,
+                    data?.link,
+                    data?.audio,
+                    data?.audio_url,
+                    data?.download,
+                ];
+                for (const path of checkPaths) {
+                    if (path && typeof path === 'string' && path.startsWith('http')) {
+                        downloadUrl = path;
+                        console.log('[Download] Found URL at path:', path.substring(0, 60) + '...');
+                        break;
+                    }
+                }
+
+                // If result itself is a string URL
+                if (!downloadUrl && typeof data?.result === 'string' && data.result.startsWith('http')) {
+                    downloadUrl = data.result;
+                }
+                if (!downloadUrl && typeof data?.data === 'string' && data.data.startsWith('http')) {
+                    downloadUrl = data.data;
+                }
+
+                // If result is an object with nested download object
+                if (!downloadUrl && data?.result?.download && typeof data.result.download === 'object') {
+                    const d = data.result.download;
+                    downloadUrl = d.url || d.link || d.audio || d.file || d.source;
+                }
 
                 if (downloadUrl) {
                     window.open(downloadUrl, '_blank');
                     showToast('Sukses', 'Download dimulai di tab baru!', 'success');
                 } else {
-                    console.error('[Download] No download URL found in response');
-                    showToast('Error', 'Gagal mendapatkan link download. Response tidak memiliki URL.', 'error');
+                    console.error('[Download] Full response (first 800 chars):', JSON.stringify(data).substring(0, 800));
+                    showToast('Error', 'Gagal mendapatkan link download. Cek console untuk detail response.', 'error');
                 }
             } catch (err) {
                 console.error('[Download] Error:', err);
@@ -396,25 +458,45 @@ async function searchSpotify(query) {
 
         if (rawTracks.length) {
             tracks = rawTracks.map((item, idx) => {
+                if (!item || typeof item !== 'object') return null;
+
                 // Handle various API response field names
-                const title = item.title || item.name || item.trackName || 'Unknown';
-                const artist = item.artist || item.artists || item.artistName || 'Unknown';
-                const album = item.album || item.collectionName || item.albumName || '-';
-                const image = item.image || item.thumbnail || item.cover || item.artworkUrl || item.album?.cover || '';
-                const thumb = item.thumbnail || item.image || item.cover || item.artworkUrl || item.album?.cover || '';
-                const url = item.url || item.preview_url || item.link || item.previewUrl || '';
-                const durMs = item.duration_ms || item.durationMs || item.duration || 0;
+                const title = item.title || item.name || item.trackName || item.track || 'Unknown';
+                const artist = item.artist || item.artists || item.artistName || item.artist_name || 'Unknown';
+                const album = item.album || item.collectionName || item.albumName || item.album_name || '-';
+
+                // Images - try many paths
+                let image = item.image || item.thumbnail || item.cover || item.artworkUrl || item.artwork || '';
+                if (!image && item.album && typeof item.album === 'object') {
+                    image = item.album.cover || item.album.image || item.album.thumbnail || '';
+                }
+                let thumb = item.thumbnail || item.image || item.cover || item.artworkUrl || item.artwork || '';
+                if (!thumb && item.album && typeof item.album === 'object') {
+                    thumb = item.album.thumbnail || item.album.image || item.album.cover || '';
+                }
+
+                // URL for playing - try many possible fields
+                let url = item.url || item.preview_url || item.previewUrl || item.link || item.audio || item.audio_url || item.download_url || '';
+                if (!url && item.external_urls) url = item.external_urls.spotify || '';
+
+                // Duration - try many formats
+                let durRaw = item.duration_ms || item.durationMs || item.duration || item.trackDuration || 0;
+                // Some APIs return duration as string like "3:45"
+                if (typeof durRaw === 'string' && durRaw.includes(':')) {
+                    // keep as is, formatDuration will handle it
+                }
+
                 const genre = item.genre || item.primaryGenreName || 'Music';
 
-                console.log(`[Spotify] Track ${idx}:`, title, '-', artist, '| URL:', url ? 'yes' : 'no');
+                console.log(`[Spotify] Track ${idx}: "${title}" | durRaw: ${durRaw} | url: ${url ? 'YES' : 'NO'}`);
 
                 return {
                     title, artist, album, image, thumb, url,
-                    duration: durMs ? formatDuration(durMs) : '0:00',
-                    durationMs: durMs,
+                    duration: formatDuration(durRaw),
+                    durationMs: typeof durRaw === 'number' ? durRaw : 0,
                     genre
                 };
-            });
+            }).filter(Boolean);
         }
     } catch (e) { 
         console.error('[Spotify] Search failed:', e.message);
@@ -505,11 +587,36 @@ async function openLyricsModal(trackJson) {
         if (res.ok) {
             const data = await res.json();
             console.log('[Lyrics] Response keys:', Object.keys(data));
-            const lyrics = data?.result || data?.lyrics || data?.data?.lyrics || data?.data || data?.message;
+            console.log('[Lyrics] Full response (first 500 chars):', JSON.stringify(data).substring(0, 500));
+
+            // Try many possible paths for lyrics
+            let lyrics = null;
+            const lyricPaths = [
+                data?.result,
+                data?.lyrics,
+                data?.data?.lyrics,
+                data?.data?.result,
+                data?.data?.text,
+                data?.data?.content,
+                data?.data?.message,
+                data?.text,
+                data?.content,
+                data?.message,
+                data?.data,
+            ];
+            for (const path of lyricPaths) {
+                if (path && (typeof path === 'string' || (typeof path === 'object' && path !== null))) {
+                    lyrics = path;
+                    break;
+                }
+            }
+
             if (lyrics && typeof lyrics === 'string') {
                 document.getElementById('lyrics-body').textContent = lyrics;
-            } else if (lyrics) {
-                document.getElementById('lyrics-body').textContent = JSON.stringify(lyrics, null, 2);
+            } else if (lyrics && typeof lyrics === 'object') {
+                // If it's an object, try to extract text from it
+                const text = lyrics.lyrics || lyrics.text || lyrics.content || lyrics.result || lyrics.message || JSON.stringify(lyrics, null, 2);
+                document.getElementById('lyrics-body').textContent = text;
             } else {
                 document.getElementById('lyrics-body').textContent = 'Lirik tidak ditemukan untuk lagu ini.';
             }
@@ -635,9 +742,13 @@ function toggleDetailPlay() {
 function quickPlayString(enc) {
     try {
         const t = JSON.parse(decodeURIComponent(enc));
-        if (!t.url) { showToast('Info', 'Preview tidak tersedia', 'error'); return; }
+        console.log('[QuickPlay] Track:', t.title, '| URL:', t.url ? 'YES' : 'NO');
+        if (!t.url || !t.url.startsWith('http')) { 
+            showToast('Info', 'Preview audio tidak tersedia untuk lagu ini.', 'error'); 
+            return; 
+        }
         playSpotify(t.url, t.title, t.artist, t.thumb || t.image);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error('[QuickPlay] Error:', e); }
 }
 
 function errorHTML(msg) {
@@ -856,23 +967,32 @@ function pauseAudio() {
 }
 
 function playSpotify(url, title, artist, cover) {
+    // Validate URL
+    if (!url || !url.startsWith('http')) {
+        console.error('[Play] Invalid or missing audio URL:', url);
+        showToast('Error', 'Preview audio tidak tersedia untuk lagu ini.', 'error');
+        return;
+    }
+
     const player = document.getElementById('audio-player');
     const audio = document.getElementById('audio-element');
     const playBtn = document.getElementById('player-play');
     const titleEl = document.getElementById('player-title');
     const artistEl = document.getElementById('player-artist');
     const coverEl = document.getElementById('player-cover');
-    currentAudioUrl = url || '';
+    currentAudioUrl = url;
     if (titleEl) titleEl.textContent = title || 'Unknown';
     if (artistEl) artistEl.textContent = artist || 'Unknown';
     if (coverEl) { coverEl.src = cover || ''; coverEl.classList.remove('hidden'); }
     if (audio) {
         audio.crossOrigin = 'anonymous';
-        if (audio.src !== url) audio.src = url || '';
+        if (audio.src !== url) audio.src = url;
     }
     initVisualizer();
     if (audio && url) {
+        console.log('[Play] Attempting to play:', url.substring(0, 80) + '...');
         audio.play().then(() => {
+            console.log('[Play] Playing successfully');
             isPlaying = true;
             if (player) player.classList.remove('paused');
             if (playBtn) {
@@ -888,8 +1008,9 @@ function playSpotify(url, title, artist, cover) {
                 setupAudioContext(audio);
                 startVisualizer();
             } catch (e) { console.log('Visualizer error', e); }
-        }).catch(() => {
-            showToast('Info', 'Preview tidak tersedia', 'error');
+        }).catch((err) => {
+            console.error('[Play] Playback failed:', err.message);
+            showToast('Error', 'Preview tidak bisa diputar: ' + (err.message || 'Audio tidak tersedia'), 'error');
         });
     }
     if (player) player.classList.add('show');
