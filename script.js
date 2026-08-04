@@ -1335,18 +1335,22 @@ function showDownloadInfoModal(result, spotifyUrl) {
     const old = document.getElementById('dl-info-modal');
     if (old) old.remove();
     
+    // Normalisasi hasil dari API terlebih dahulu
+    const norm = normalizeDownloadResult(result);
     const cached = spotifyUrl ? trackDataMap.get(spotifyUrl) : null;
     const key = result.title && result.artist ? (result.title + '|' + result.artist).toLowerCase() : '';
     const cachedByKey = key ? trackDataMap.get(key) : null;
     const track = cached || cachedByKey || {};
     
+    let rawDuration = result.duration || result.duration_ms || norm.duration || track.duration || '0:00';
+
     let merged = {
-        title: result.title || track.title || 'Unknown',
-        artist: result.artist || track.artist || 'Unknown',
-        album: result.album || track.album || '-',
-        image: result.image || track.image || track.thumb || '',
-        duration: result.duration || track.duration || '0:00',
-        download: result.download || ''
+        title: result.title || norm.title || track.title || 'Unknown',
+        artist: result.artist || norm.artist || track.artist || 'Unknown',
+        album: result.album || norm.album || track.album || '-',
+        image: result.image || norm.image || track.image || track.thumb || '',
+        duration: formatDuration(rawDuration),
+        download: result.download || norm.download || ''
     };
 
     const modal = document.createElement('div');
@@ -1382,7 +1386,7 @@ function showDownloadInfoModal(result, spotifyUrl) {
                 <div class="grid grid-cols-2 gap-3">
                     <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)]">
                         <p class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Durasi</p>
-                        <p id="dl-info-duration" class="font-semibold text-[var(--text-primary)] text-sm">${formatDuration(merged.duration)}</p>
+                        <p id="dl-info-duration" class="font-semibold text-[var(--text-primary)] text-sm">${merged.duration}</p>
                     </div>
                     <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)]">
                         <p class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Format</p>
@@ -1413,7 +1417,7 @@ function showDownloadInfoModal(result, spotifyUrl) {
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
 
-    // === FIX DURATION: Fetch search API kalau duration masih 0:00 ===
+    // Auto enrich jika durasi masih 0:00
     if (!merged.duration || merged.duration === '0:00') {
         (async () => {
             try {
@@ -1428,12 +1432,11 @@ function showDownloadInfoModal(result, spotifyUrl) {
                 if (rawTracks.length > 0) {
                     const first = rawTracks[0];
                     let foundDur = first.duration || first.duration_ms || first.durationMs || first.length || first.trackDuration || first.time || '0:00';
-                    if (typeof foundDur === 'number') foundDur = formatDuration(foundDur);
+                    let formatted = formatDuration(foundDur);
                     
-                    if (foundDur && foundDur !== '0:00') {
+                    if (formatted && formatted !== '0:00') {
                         const durEl = document.getElementById('dl-info-duration');
-                        if (durEl) durEl.textContent = formatDuration(foundDur);
-                        console.log('[Info Modal] Duration enriched:', foundDur);
+                        if (durEl) durEl.textContent = formatted;
                     }
                 }
             } catch (e) {
