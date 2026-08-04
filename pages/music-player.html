@@ -28,82 +28,59 @@
         }
     </script>
     <style>
-        /* ===== FLOATING MUSIC PLAYER (BOTTOM) ===== */
+        /* ===== COMPACT MUSIC PLAYER (BOTTOM) ===== */
         #music-player {
             position: fixed;
             bottom: 0;
             left: 260px;
             right: 0;
-            background: var(--bg-sidebar);
+            background: rgba(15, 23, 42, 0.92);
             backdrop-filter: blur(24px) saturate(1.8);
             -webkit-backdrop-filter: blur(24px) saturate(1.8);
-            border-top: 1px solid var(--border-color);
-            box-shadow: 0 -8px 32px rgba(0,0,0,0.08);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 -8px 32px rgba(0,0,0,0.3);
             z-index: 45;
             transform: translateY(100%);
-            transition: transform 0.5s cubic-bezier(0.16,1,0.3,1), background 0.3s ease;
+            transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);
+            color: white;
         }
         #music-player.show {
             transform: translateY(0);
         }
-        #music-player .mp-inner {
+        @media (max-width: 1023px) {
+            #music-player { left: 0; }
+        }
+
+        .mp-inner {
             max-width: 1100px;
             margin: 0 auto;
-            padding: 14px 28px;
+            padding: 14px 24px;
             display: flex;
             align-items: center;
             gap: 16px;
         }
-        @media (max-width: 1023px) {
-            #music-player { left: 0; }
-            #music-player .mp-inner { padding: 12px 16px; }
-        }
         @media (max-width: 640px) {
-            #music-player .mp-inner { padding: 10px 12px; gap: 10px; }
+            .mp-inner { padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
         }
 
-        .mp-cover-wrap {
-            position: relative;
-            flex-shrink: 0;
-        }
         .mp-cover {
-            width: 52px; height: 52px;
+            width: 56px; height: 56px;
             border-radius: 12px;
             object-fit: cover;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-            transition: transform 0.3s ease;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+            transition: transform 0.15s ease;
         }
-        .mp-cover.pulse {
-            animation: coverBeat 0.45s cubic-bezier(0.34,1.56,0.64,1);
+        .mp-cover.kick-beat {
+            animation: coverPulse 0.18s ease-out;
         }
-        @keyframes coverBeat {
+        @keyframes coverPulse {
             0% { transform: scale(1); }
-            40% { transform: scale(1.1); }
+            50% { transform: scale(1.08); }
             100% { transform: scale(1); }
         }
-        .mp-cover-dot {
-            position: absolute;
-            bottom: -3px; right: -3px;
-            width: 14px; height: 14px;
-            border-radius: 50%;
-            background: #ec4899;
-            border: 2px solid var(--bg-sidebar);
-            box-shadow: 0 0 6px rgba(236,72,153,0.6);
-        }
-        .mp-cover-dot::after {
-            content: '';
-            position: absolute;
-            inset: 2px;
-            border-radius: 50%;
-            background: white;
-            animation: dotPulse 1.2s ease-in-out infinite;
-        }
-        @keyframes dotPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(0.6); }
-        }
 
-        .mp-info {
+        .mp-info-col {
             flex: 1;
             min-width: 0;
             display: flex;
@@ -113,141 +90,147 @@
         .mp-title {
             font-size: 14px;
             font-weight: 700;
-            color: var(--text-primary);
+            color: #fff;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .mp-artist {
             font-size: 12px;
-            color: var(--text-secondary);
+            color: rgba(255,255,255,0.55);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .mp-meta-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 2px;
-        }
-        .mp-genre {
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 2px 8px;
-            border-radius: 20px;
-            background: rgba(236,72,153,0.1);
-            border: 1px solid rgba(236,72,153,0.2);
-            color: #db2777;
-        }
-        [data-theme="dark"] .mp-genre {
-            background: rgba(236,72,153,0.15);
-            color: #f472b6;
-        }
-        .mp-time {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-muted);
-            font-variant-numeric: tabular-nums;
-        }
 
-        .mp-viz {
+        .mp-viz-wrap {
             display: flex;
             align-items: flex-end;
             justify-content: center;
-            gap: 2.5px;
-            height: 40px;
-            width: 160px;
-            flex-shrink: 0;
-        }
-        @media (max-width: 640px) {
-            .mp-viz { display: none; }
+            gap: 2px;
+            height: 32px;
+            flex: 1;
+            min-width: 80px;
+            max-width: 280px;
         }
         .mp-viz-bar {
             flex: 1;
             border-radius: 99px;
             min-height: 2px;
-            background: linear-gradient(to top, #ec4899, #f43f5e);
-            transition: height 0.04s ease-out, filter 0.08s ease, background 0.08s ease;
+            background: rgba(255,255,255,0.85);
+            transition: height 0.05s ease-out;
+            box-shadow: 0 0 4px rgba(255,255,255,0.2);
         }
         .mp-viz-bar.kick {
-            background: linear-gradient(to top, #f59e0b, #ef4444) !important;
-            filter: drop-shadow(0 0 6px rgba(245,158,11,1));
+            background: linear-gradient(to top, #fff, #a5f3fc) !important;
+            box-shadow: 0 0 8px rgba(165,243,252,0.6), 0 0 16px rgba(165,243,252,0.3);
         }
-        .mp-viz-bar.snare {
-            background: linear-gradient(to top, #3b82f6, #8b5cf6) !important;
-            filter: drop-shadow(0 0 4px rgba(59,130,246,0.8));
+
+        .mp-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .mp-btn-icon {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            color: rgba(255,255,255,0.5);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .mp-btn-icon:hover {
+            color: rgba(255,255,255,0.9);
+            transform: scale(1.1);
+        }
+        .mp-btn-icon:active {
+            transform: scale(0.92);
+        }
+        .mp-btn-icon.active {
+            color: #a5f3fc;
+        }
+        .mp-btn-play {
+            width: 42px; height: 42px;
+            border-radius: 50%;
+            background: #fff;
+            color: #0f172a;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(255,255,255,0.15);
+            transition: all 0.2s ease;
+        }
+        .mp-btn-play:hover {
+            transform: scale(1.08);
+            box-shadow: 0 6px 20px rgba(255,255,255,0.25);
+        }
+        .mp-btn-play:active {
+            transform: scale(0.95);
+        }
+
+        .mp-btn-close {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.5);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-left: 4px;
+        }
+        .mp-btn-close:hover {
+            background: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            transform: scale(1.1);
+        }
+        .mp-btn-close:active {
+            transform: scale(0.9);
         }
 
         .mp-progress-wrap {
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 3px;
-            background: transparent;
+            background: rgba(255,255,255,0.08);
             cursor: pointer;
-        }
-        .mp-progress-track {
-            position: absolute;
-            inset: 0;
-            background: var(--input-bg);
         }
         .mp-progress-bar {
             height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, #ec4899, #f43f5e, #f59e0b);
+            background: linear-gradient(90deg, #22d3ee, #a5f3fc);
             transition: width 0.1s linear;
-            box-shadow: 0 0 8px rgba(236,72,153,0.4);
+            box-shadow: 0 0 8px rgba(34,211,238,0.4);
         }
-
-        .mp-controls {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-shrink: 0;
-        }
-        .mp-btn {
-            width: 36px; height: 36px;
+        .mp-progress-thumb {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px; height: 10px;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: var(--text-secondary);
-            background: var(--input-bg);
-            border: 1px solid var(--border-color);
+            background: #fff;
+            box-shadow: 0 0 8px rgba(255,255,255,0.5);
+            opacity: 0;
+            transition: opacity 0.2s ease;
         }
-        .mp-btn:hover {
-            background: var(--hover-bg);
-            color: var(--text-primary);
-            transform: scale(1.08);
-        }
-        .mp-btn-play {
-            width: 42px; height: 42px;
-            background: linear-gradient(135deg, #ec4899, #f43f5e);
-            color: white;
-            border: none;
-            box-shadow: 0 4px 14px rgba(236,72,153,0.35);
-        }
-        .mp-btn-play:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(236,72,153,0.5);
-        }
-        .mp-btn-play:active {
-            transform: scale(0.95);
+        .mp-progress-wrap:hover .mp-progress-thumb {
+            opacity: 1;
         }
 
         .music-card-active {
             border-color: rgba(236,72,153,0.5) !important;
             box-shadow: 0 0 20px rgba(236,72,153,0.15), var(--shadow-card-hover) !important;
         }
-        [data-theme="dark"] .music-card-active {
-            box-shadow: 0 0 20px rgba(236,72,153,0.2), inset 0 1px 0 rgba(255,255,255,0.1) !important;
-        }
-
         .music-card .play-overlay-btn {
             opacity: 0;
             transform: translateY(10px) scale(0.9);
@@ -259,12 +242,15 @@
         }
 
         #main-content {
-            padding-bottom: 100px;
+            padding-bottom: 120px;
         }
         @media (max-width: 640px) {
-            #main-content {
-                padding-bottom: 80px;
-            }
+            #main-content { padding-bottom: 100px; }
+            .mp-viz-wrap { max-width: 120px; height: 24px; }
+            .mp-controls { gap: 6px; }
+            .mp-btn-icon { width: 28px; height: 28px; }
+            .mp-btn-play { width: 36px; height: 36px; }
+            .mp-btn-close { width: 24px; height: 24px; }
         }
     </style>
 </head>
@@ -285,12 +271,9 @@
         </div>
 
         <nav class="sidebar-nav">
-            <!-- Dashboard kembali ke root folder -->
             <a href="../index.html" class="nav-item">
                 <i data-lucide="layout-dashboard" class="nav-icon"></i><span>Dashboard</span>
             </a>
-    
-            <!-- Berada di folder yang sama (pages/) -->
             <a href="./pterodactyl.html" class="nav-item">
                 <i data-lucide="server" class="nav-icon"></i><span>Panel Pterodactyl</span>
             </a>
@@ -362,7 +345,7 @@
                             <i data-lucide="headphones" class="w-8 h-8 text-white"></i>
                         </div>
                         <h2 class="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] mb-2">Music Player</h2>
-                        <p class="text-sm text-[var(--text-muted)] mb-8 max-w-md mx-auto">Cari lagu favoritmu dari library iTunes. Dengarkan preview 30 detik dengan visualizer beat real-time yang responsif terhadap kick & snare.</p>
+                        <p class="text-sm text-[var(--text-muted)] mb-8 max-w-md mx-auto">Cari lagu favoritmu dari library iTunes. Dengarkan preview 30 detik dengan visualizer beat real-time.</p>
 
                         <form id="itunes-form" class="search-box max-w-2xl mx-auto">
                             <i data-lucide="search" class="search-icon w-5 h-5"></i>
@@ -418,32 +401,37 @@
         </div>
     </main>
 
-    <!-- FLOATING MUSIC PLAYER (BOTTOM) -->
+    <!-- COMPACT MUSIC PLAYER (BOTTOM) -->
     <div id="music-player">
         <div class="mp-progress-wrap" id="mp-progress-click">
-            <div class="mp-progress-track"></div>
-            <div class="mp-progress-bar" id="mp-progress-bar"></div>
+            <div class="mp-progress-bar" id="mp-progress-fill"></div>
+            <div class="mp-progress-thumb" id="mp-progress-thumb"></div>
         </div>
         <div class="mp-inner">
-            <div class="mp-cover-wrap">
-                <img id="mp-cover" src="" alt="Cover" class="mp-cover">
-                <div class="mp-cover-dot" id="mp-dot"></div>
-            </div>
-            <div class="mp-info">
+            <img id="mp-cover" src="" alt="Cover" class="mp-cover" onerror="this.style.display='none'">
+            <div class="mp-info-col">
                 <p id="mp-title" class="mp-title">-</p>
                 <p id="mp-artist" class="mp-artist">-</p>
-                <div class="mp-meta-row">
-                    <span id="mp-genre" class="mp-genre">-</span>
-                    <span id="mp-time" class="mp-time">0:00 / 0:30</span>
-                </div>
             </div>
-            <div class="mp-viz" id="mp-viz"></div>
+            <div class="mp-viz-wrap" id="mp-viz"></div>
             <div class="mp-controls">
-                <button id="mp-play" class="mp-btn mp-btn-play" title="Play / Pause">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <button id="mp-shuffle" class="mp-btn-icon" title="Shuffle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
                 </button>
-                <button id="mp-stop" class="mp-btn" title="Stop">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                <button id="mp-prev" class="mp-btn-icon" title="Previous">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
+                <button id="mp-play" class="mp-btn-play" title="Play / Pause">
+                    <svg id="mp-play-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </button>
+                <button id="mp-next" class="mp-btn-icon" title="Next">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+                <button id="mp-repeat" class="mp-btn-icon" title="Repeat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                </button>
+                <button id="mp-close" class="mp-btn-close" title="Close Player">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
         </div>
@@ -463,9 +451,9 @@
     </div>
 
     <script src="../script.js"></script>
-    <script>    <script>
+    <script>
     (function() {
-        /* ===== ITUNES MUSIC PLAYER + KICK BEAT VISUALIZER ===== */
+        /* ===== MUSIC PLAYER v3 - FIXED PLAY/PAUSE ===== */
         let currentAudio = null;
         let audioCtx = null;
         let analyser = null;
@@ -478,6 +466,9 @@
         let _tracks = [];
         let _currentIndex = -1;
         let isAudioPlaying = false;
+        let isShuffle = false;
+        let isRepeat = false;
+        let isPlayerInitialized = false;
 
         const $ = (id) => document.getElementById(id);
 
@@ -493,35 +484,32 @@
             return new Date(iso).getFullYear();
         }
 
-        /* --- AUDIO CONTEXT --- */
         function initAudioContext() {
             if (!audioCtx) {
-                try {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                } catch (e) {
-                    console.error('[Audio] Context failed:', e);
-                    return null;
-                }
+                try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+                catch (e) { return null; }
             }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume().catch(() => {});
-            }
+            if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
             return audioCtx;
         }
 
         /* --- SEARCH --- */
         async function searchITunes(query) {
-            $('itunes-loading').classList.remove('hidden');
-            $('itunes-results').innerHTML = '';
-            $('itunes-empty').classList.add('hidden');
+            const loading = $('itunes-loading');
+            const results = $('itunes-results');
+            const empty = $('itunes-empty');
+            
+            loading.classList.remove('hidden');
+            results.innerHTML = '';
+            empty.classList.add('hidden');
 
             try {
                 const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=24`);
                 const data = await res.json();
 
                 if (!data.results || !data.results.length) {
-                    $('itunes-empty').classList.remove('hidden');
-                    $('itunes-empty').innerHTML = `
+                    empty.classList.remove('hidden');
+                    empty.innerHTML = `
                         <div class="w-16 h-16 rounded-2xl bg-[var(--input-bg)] flex items-center justify-center mx-auto mb-4 border border-[var(--border-color)]">
                             <i data-lucide="music-off" class="w-8 h-8 text-[var(--text-muted)] opacity-50"></i>
                         </div>
@@ -531,7 +519,7 @@
                 }
 
                 _tracks = data.results;
-                $('itunes-results').innerHTML = data.results.map((t, i) => {
+                results.innerHTML = data.results.map((t, i) => {
                     const img = t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '600x600bb') : '';
                     const dur = fmtDuration(t.trackTimeMillis);
                     const year = fmtDate(t.releaseDate);
@@ -543,8 +531,8 @@
                             <img src="${img}" alt="${t.trackName}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy"
                                  onerror="this.src='https://via.placeholder.com/600x600/e2e8f0/94a3b8?text=No+Cover'">
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                            <button onclick="window.playITunesTrack(${i})" class="play-overlay-btn absolute bottom-3 right-3 w-12 h-12 rounded-full bg-pink-500 text-white flex items-center justify-center shadow-lg shadow-pink-500/30 hover:scale-110 active:scale-95">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <button onclick="window.yukiPlayTrack(${i})" class="play-overlay-btn absolute bottom-3 right-3 w-12 h-12 rounded-full bg-pink-500 text-white flex items-center justify-center shadow-lg shadow-pink-500/30 hover:scale-110 active:scale-95">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                             </button>
                         </div>
                         <div class="p-4">
@@ -575,31 +563,31 @@
 
                 lucide.createIcons();
             } catch (e) {
-                $('itunes-results').innerHTML = `
+                results.innerHTML = `
                     <div class="col-span-full text-center py-10">
                         <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center mx-auto mb-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-red-400"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-red-400"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
                         </div>
                         <p class="text-sm text-[var(--text-muted)]">Gagal memuat: ${e.message}</p>
                     </div>`;
             } finally {
-                $('itunes-loading').classList.add('hidden');
+                loading.classList.add('hidden');
             }
         }
 
-        /* --- BUILD VIZ BARS (28 BARS) --- */
+        /* --- VIZ BARS (40 WHITE BARS) --- */
         function buildVizBars() {
-            const vizContainer = $('mp-viz');
-            vizContainer.innerHTML = '';
-            for (let i = 0; i < 28; i++) {
+            const viz = $('mp-viz');
+            viz.innerHTML = '';
+            for (let i = 0; i < 40; i++) {
                 const bar = document.createElement('div');
                 bar.className = 'mp-viz-bar';
-                bar.style.height = '4px';
-                vizContainer.appendChild(bar);
+                bar.style.height = '3px';
+                viz.appendChild(bar);
             }
         }
 
-        /* --- IDLE ANIMATION (subtle wave when not playing) --- */
+        /* --- IDLE WAVE --- */
         function startIdleViz() {
             if (idleFrameId) cancelAnimationFrame(idleFrameId);
             const bars = document.querySelectorAll('.mp-viz-bar');
@@ -607,10 +595,10 @@
             let t = 0;
             function renderIdle() {
                 if (isAudioPlaying) { idleFrameId = null; return; }
-                t += 0.05;
+                t += 0.04;
                 bars.forEach((bar, i) => {
-                    const h = 4 + Math.sin(t + i * 0.4) * 3 + Math.sin(t * 1.3 + i * 0.2) * 2;
-                    bar.style.height = Math.max(4, h) + 'px';
+                    const h = 3 + Math.sin(t + i * 0.35) * 4 + Math.sin(t * 0.7 + i * 0.15) * 2;
+                    bar.style.height = Math.max(3, Math.min(28, h)) + 'px';
                     bar.className = 'mp-viz-bar';
                 });
                 idleFrameId = requestAnimationFrame(renderIdle);
@@ -621,25 +609,45 @@
             if (idleFrameId) { cancelAnimationFrame(idleFrameId); idleFrameId = null; }
         }
 
-        /* --- PLAYBACK --- */
-        window.playITunesTrack = function(index) {
+        /* ===== CORE: PLAY TRACK ===== */
+        window.yukiPlayTrack = function(index) {
             const track = _tracks[index];
             if (!track || !track.previewUrl) {
-                if (typeof showToast === 'function') showToast('Error', 'Preview tidak tersedia.', 'error');
+                showToast('Error', 'Preview tidak tersedia.', 'error');
                 return;
             }
 
             const ctx = initAudioContext();
             if (!ctx) {
-                if (typeof showToast === 'function') showToast('Error', 'Gagal inisialisasi audio.', 'error');
+                showToast('Error', 'Gagal inisialisasi audio.', 'error');
                 return;
             }
 
-            // Stop existing
-            stopMusic(false);
+            // Clean up previous audio properly
+            if (currentAudio) {
+                try {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                    currentAudio.src = '';
+                } catch(e) {}
+                currentAudio = null;
+            }
+            
+            // Clean up audio graph
+            if (source) {
+                try { source.disconnect(); } catch(e) {}
+                source = null;
+            }
+            if (analyser) {
+                try { analyser.disconnect(); } catch(e) {}
+                analyser = null;
+            }
+            
+            stopViz();
+            stopIdleViz();
             isAudioPlaying = false;
 
-            // UI active state
+            // Update UI
             document.querySelectorAll('.music-card').forEach(c => c.classList.remove('music-card-active'));
             const card = $(`mc-${index}`);
             if (card) card.classList.add('music-card-active');
@@ -650,118 +658,191 @@
 
             const imgUrl = track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb', '600x600bb') : '';
             $('mp-cover').src = imgUrl;
+            $('mp-cover').style.display = '';
             $('mp-title').textContent = track.trackName;
             $('mp-artist').textContent = track.artistName;
-            $('mp-genre').textContent = track.primaryGenreName || 'Music';
-            $('mp-time').textContent = '0:00 / ' + (fmtDuration(track.trackTimeMillis) || '0:30');
 
             buildVizBars();
-            startIdleViz(); // show subtle idle animation immediately
+            startIdleViz();
+            updatePlayButton(false);
+            $('mp-progress-fill').style.width = '0%';
+            $('mp-progress-thumb').style.left = '0%';
 
-            // === CREATE AUDIO ===
+            // Create new audio
             currentAudio = new Audio();
             currentAudio.crossOrigin = 'anonymous';
             currentAudio.src = track.previewUrl;
             currentAudio.preload = 'auto';
 
-            // === AUDIO GRAPH SETUP ===
+            // Setup audio graph
             try {
-                if (source) {
-                    try { source.disconnect(); } catch(e) {}
-                    source = null;
-                }
-                if (analyser) {
-                    try { analyser.disconnect(); } catch(e) {}
-                }
                 analyser = ctx.createAnalyser();
                 analyser.fftSize = 256;
                 analyser.smoothingTimeConstant = 0.78;
                 analyser.minDecibels = -85;
                 analyser.maxDecibels = -25;
-
                 source = ctx.createMediaElementSource(currentAudio);
                 source.connect(analyser);
                 analyser.connect(ctx.destination);
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
             } catch (e) {
-                console.error('[Audio] Graph setup failed:', e);
-                if (typeof showToast === 'function') showToast('Error', 'Visualizer gagal: ' + e.message, 'error');
+                console.error('[Audio] Graph failed:', e);
+                // Fallback: still try to play
             }
 
-            // === EVENT HANDLERS ===
-            currentAudio.addEventListener('canplaythrough', () => {
-                console.log('[Audio] Ready');
-            });
-
-            currentAudio.addEventListener('play', () => {
+            // Event listeners
+            const playHandler = () => {
                 isAudioPlaying = true;
                 stopIdleViz();
-                $('mp-play').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+                updatePlayButton(true);
                 if (analyser && dataArray) startViz();
-                if (typeof showToast === 'function') showToast('Playing', `${track.trackName} — ${track.artistName}`, 'success');
-            });
+                showToast('Playing', track.trackName + ' — ' + track.artistName, 'success');
+            };
 
-            currentAudio.addEventListener('pause', () => {
+            const pauseHandler = () => {
                 isAudioPlaying = false;
                 stopViz();
                 startIdleViz();
-                $('mp-play').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
-            });
+                updatePlayButton(false);
+            };
 
-            currentAudio.addEventListener('ended', () => {
+            const endedHandler = () => {
                 isAudioPlaying = false;
                 stopViz();
                 startIdleViz();
-                $('mp-progress-bar').style.width = '100%';
-                $('mp-play').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+                updatePlayButton(false);
+                $('mp-progress-fill').style.width = '100%';
                 card?.classList.remove('music-card-active');
-                if (typeof showToast === 'function') showToast('Selesai', 'Preview selesai diputar.', 'info');
-            });
+                
+                if (isRepeat) {
+                    window.yukiPlayTrack(index);
+                } else if (isShuffle) {
+                    playShuffle();
+                } else {
+                    playNext();
+                }
+            };
 
-            currentAudio.addEventListener('error', (e) => {
-                console.error('[Audio] Error:', currentAudio.error);
+            const timeUpdateHandler = () => {
+                if (!currentAudio || !currentAudio.duration) return;
+                const pct = (currentAudio.currentTime / currentAudio.duration) * 100;
+                $('mp-progress-fill').style.width = pct + '%';
+                $('mp-progress-thumb').style.left = pct + '%';
+            };
+
+            const errorHandler = (e) => {
+                console.error('[Audio Error]', e);
                 isAudioPlaying = false;
                 stopViz();
                 startIdleViz();
-                const errMsg = currentAudio.error?.message || 'Gagal memutar audio';
-                if (typeof showToast === 'function') showToast('Error', errMsg, 'error');
-                $('mp-play').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
-            });
+                updatePlayButton(false);
+                showToast('Error', 'Gagal memutar audio', 'error');
+            };
 
-            currentAudio.addEventListener('timeupdate', () => {
-                if (!currentAudio.duration) return;
-                const pct = (currentAudio.currentTime / currentAudio.duration) * 100;
-                $('mp-progress-bar').style.width = pct + '%';
-                $('mp-time').textContent = fmtDuration(currentAudio.currentTime * 1000) + ' / ' + fmtDuration(currentAudio.duration * 1000);
-            });
+            // Remove old listeners to prevent duplicates
+            currentAudio.removeEventListener('play', playHandler);
+            currentAudio.removeEventListener('pause', pauseHandler);
+            currentAudio.removeEventListener('ended', endedHandler);
+            currentAudio.removeEventListener('timeupdate', timeUpdateHandler);
+            currentAudio.removeEventListener('error', errorHandler);
 
-            // === PLAY ===
-            const playPromise = currentAudio.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(err => {
-                    console.error('[Audio] Play failed:', err);
-                    if (ctx.state === 'suspended') {
-                        ctx.resume().then(() => currentAudio.play().catch(() => {}));
-                    }
-                });
-            }
+            // Add fresh listeners
+            currentAudio.addEventListener('play', playHandler);
+            currentAudio.addEventListener('pause', pauseHandler);
+            currentAudio.addEventListener('ended', endedHandler);
+            currentAudio.addEventListener('timeupdate', timeUpdateHandler);
+            currentAudio.addEventListener('error', errorHandler);
+
+            // Start playing
+            currentAudio.play().catch(err => {
+                console.error('[Play]', err);
+                if (ctx.state === 'suspended') {
+                    ctx.resume().then(() => {
+                        currentAudio.play().catch(() => {
+                            showToast('Error', 'Gagal memutar audio', 'error');
+                        });
+                    });
+                } else {
+                    showToast('Error', 'Gagal memutar audio', 'error');
+                }
+            });
         };
 
-        function stopMusic(hidePlayer = true) {
-            if (currentAudio) {
+        /* --- SHUFFLE --- */
+        function playShuffle() {
+            if (_tracks.length === 0) return;
+            let idx = Math.floor(Math.random() * _tracks.length);
+            if (idx === _currentIndex && _tracks.length > 1) {
+                idx = (idx + 1) % _tracks.length;
+            }
+            window.yukiPlayTrack(idx);
+        }
+
+        /* ===== TOGGLE PLAY/PAUSE ===== */
+        function togglePlayPause() {
+            if (!currentAudio) {
+                // If no audio is loaded, try to play first track
+                if (_tracks.length > 0 && _currentIndex === -1) {
+                    window.yukiPlayTrack(0);
+                }
+                return;
+            }
+            
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+            
+            if (currentAudio.paused) {
+                currentAudio.play().catch((err) => {
+                    console.error('[Play]', err);
+                    showToast('Error', 'Gagal melanjutkan pemutaran', 'error');
+                });
+            } else {
                 currentAudio.pause();
-                currentAudio.currentTime = 0;
-                currentAudio.src = '';
+            }
+        }
+
+        function updatePlayButton(playing) {
+            const icon = $('mp-play-icon');
+            if (playing) {
+                icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+            } else {
+                icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+            }
+        }
+
+        /* --- PREV / NEXT --- */
+        function playPrev() {
+            if (_tracks.length === 0) return;
+            let idx = _currentIndex - 1;
+            if (idx < 0) idx = _tracks.length - 1;
+            window.yukiPlayTrack(idx);
+        }
+        
+        function playNext() {
+            if (_tracks.length === 0) return;
+            let idx = _currentIndex + 1;
+            if (idx >= _tracks.length) idx = 0;
+            window.yukiPlayTrack(idx);
+        }
+
+        /* --- STOP / HIDE --- */
+        function stopMusic() {
+            if (currentAudio) {
+                try {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                    currentAudio.src = '';
+                } catch(e) {}
                 currentAudio = null;
             }
             isAudioPlaying = false;
             stopViz();
             stopIdleViz();
-            if (hidePlayer) {
-                $('music-player').classList.remove('show');
-                document.querySelectorAll('.music-card').forEach(c => c.classList.remove('music-card-active'));
-            }
-            $('mp-progress-bar').style.width = '0%';
+            $('music-player').classList.remove('show');
+            document.querySelectorAll('.music-card').forEach(c => c.classList.remove('music-card-active'));
+            _currentIndex = -1;
+            showToast('Info', 'Pemutaran dihentikan', 'info');
         }
 
         /* --- KICK BEAT VISUALIZER --- */
@@ -777,7 +858,6 @@
                 }
                 try {
                     analyser.getByteFrequencyData(dataArray);
-
                     const binCount = dataArray.length;
                     const bassEnd = Math.floor(binCount * 0.08);
                     const lowMidEnd = Math.floor(binCount * 0.18);
@@ -790,24 +870,21 @@
                     const highBins = dataArray.slice(midEnd, highEnd);
 
                     const bassAvg = bassBins.reduce((a,b)=>a+b,0) / (bassBins.length||1) / 255;
-                    const lowMidAvg = lowMidBins.reduce((a,b)=>a+b,0) / (lowMidBins.length||1) / 255;
 
                     kickEnergy = Math.max(bassAvg, kickEnergy * kickDecay);
                     const isKick = kickEnergy > 0.55;
-                    const isSnare = lowMidAvg > 0.50;
 
                     if (isKick) {
                         const cover = $('mp-cover');
-                        if (cover && !cover.classList.contains('pulse')) {
-                            cover.classList.add('pulse');
-                            setTimeout(() => cover.classList.remove('pulse'), 450);
+                        if (cover && !cover.classList.contains('kick-beat')) {
+                            cover.classList.add('kick-beat');
+                            setTimeout(() => cover.classList.remove('kick-beat'), 180);
                         }
                     }
 
                     bars.forEach((bar, i) => {
                         const ratio = i / bars.length;
                         let value = 0;
-
                         if (ratio < 0.20) {
                             const idx = Math.floor((ratio / 0.20) * bassBins.length);
                             value = bassBins[Math.min(idx, bassBins.length-1)] || 0;
@@ -823,16 +900,15 @@
                         }
 
                         const pct = value / 255;
-                        let h = 4;
-                        if (ratio < 0.20) h = 4 + pct * 36;
-                        else if (ratio < 0.40) h = 4 + pct * 30;
-                        else if (ratio < 0.65) h = 4 + pct * 24;
-                        else h = 4 + pct * 18;
+                        let h = 3;
+                        if (ratio < 0.20) h = 3 + pct * 28;
+                        else if (ratio < 0.40) h = 3 + pct * 22;
+                        else if (ratio < 0.65) h = 3 + pct * 16;
+                        else h = 3 + pct * 12;
 
                         bar.style.height = h + 'px';
                         bar.className = 'mp-viz-bar';
-                        if (isKick && ratio < 0.12) bar.classList.add('kick');
-                        else if (isSnare && ratio >= 0.12 && ratio < 0.32) bar.classList.add('snare');
+                        if (isKick && ratio < 0.10) bar.classList.add('kick');
                     });
                 } catch(e) {}
                 vizFrameId = requestAnimationFrame(render);
@@ -844,26 +920,59 @@
             if (vizFrameId) { cancelAnimationFrame(vizFrameId); vizFrameId = null; }
             kickEnergy = 0;
             document.querySelectorAll('.mp-viz-bar').forEach(b => {
-                b.style.height = '4px';
+                b.style.height = '3px';
                 b.className = 'mp-viz-bar';
             });
         }
 
-        /* --- CONTROLS --- */
-        $('mp-play').addEventListener('click', () => {
-            if (!currentAudio) return;
-            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-            if (currentAudio.paused) {
-                currentAudio.play().catch(err => {
-                    console.error('[Play] Resume failed:', err);
-                });
-            } else {
-                currentAudio.pause();
-            }
+        /* --- TOAST --- */
+        function showToast(title, message, type = 'success') {
+            const toast = $('toast');
+            const toastTitle = $('toast-title');
+            const toastMsg = $('toast-message');
+            const toastIcon = $('toast-icon');
+            
+            toastTitle.textContent = title;
+            toastMsg.textContent = message;
+            
+            const colors = {
+                success: 'bg-emerald-50 text-emerald-500',
+                error: 'bg-red-50 text-red-500',
+                info: 'bg-blue-50 text-blue-500'
+            };
+            const icons = {
+                success: 'check',
+                error: 'x-circle',
+                info: 'info'
+            };
+            
+            toastIcon.className = `w-8 h-8 rounded-full ${colors[type] || colors.success} flex items-center justify-center flex-shrink-0`;
+            toastIcon.innerHTML = `<i data-lucide="${icons[type] || 'check'}" class="w-4 h-4"></i>`;
+            lucide.createIcons();
+            
+            toast.classList.add('show');
+            clearTimeout(toast._hideTimer);
+            toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        /* ===== CONTROLS ===== */
+        $('mp-play').addEventListener('click', togglePlayPause);
+        $('mp-prev').addEventListener('click', playPrev);
+        $('mp-next').addEventListener('click', playNext);
+        $('mp-close').addEventListener('click', stopMusic);
+        
+        $('mp-shuffle').addEventListener('click', () => {
+            isShuffle = !isShuffle;
+            $('mp-shuffle').classList.toggle('active', isShuffle);
+            showToast('Shuffle', isShuffle ? 'Mode shuffle aktif' : 'Mode shuffle nonaktif', 'info');
         });
-
-        $('mp-stop').addEventListener('click', () => stopMusic(true));
-
+        
+        $('mp-repeat').addEventListener('click', () => {
+            isRepeat = !isRepeat;
+            $('mp-repeat').classList.toggle('active', isRepeat);
+            showToast('Repeat', isRepeat ? 'Mode repeat aktif' : 'Mode repeat nonaktif', 'info');
+        });
+        
         $('mp-progress-click').addEventListener('click', (e) => {
             if (!currentAudio || !currentAudio.duration) return;
             const rect = $('mp-progress-click').getBoundingClientRect();
@@ -880,17 +989,28 @@
 
         /* Keyboard */
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') stopMusic(true);
+            if (e.key === 'Escape') {
+                if ($('music-player').classList.contains('show')) {
+                    stopMusic();
+                }
+            }
             if (e.code === 'Space' && document.activeElement?.tagName !== 'INPUT') {
                 e.preventDefault();
-                $('mp-play').click();
+                togglePlayPause();
             }
         });
 
-        /* Init idle viz on load so bars are visible */
+        /* Init */
         buildVizBars();
         startIdleViz();
+        
+        // Expose for global use
+        window.showToast = showToast;
+        window.stopMusic = stopMusic;
+        window.togglePlayPause = togglePlayPause;
+        
+        console.log('🎵 Music Player v3 loaded successfully!');
     })();
-    </script></script>
+    </script>
 </body>
 </html>
