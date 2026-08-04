@@ -810,12 +810,11 @@ async function fetchAndPlayTrack(tjson, btnElement) {
         return;
     }
 
-    // Ambil tombol Play yang diklik untuk ubah icon loading
     const playBtn = btnElement || event?.currentTarget;
     const originalIcon = playBtn ? playBtn.innerHTML : '';
 
-    // Jika lagu yang sama sedang diputar, buat fitur Toggle (Pause/Play)
-    if (currentGlobalAudio && currentGlobalAudio.dataset.trackUrl === track.trackUrl) {
+    // 1. Fitur Toggle Pause / Resume jika lagu yang sama diklik lagi
+    if (currentGlobalAudio && currentGlobalAudio.dataset.trackUrl === (track.trackUrl || track.title)) {
         if (!currentGlobalAudio.paused) {
             currentGlobalAudio.pause();
             if (playBtn) playBtn.innerHTML = IC_PLAY;
@@ -829,91 +828,85 @@ async function fetchAndPlayTrack(tjson, btnElement) {
         }
     }
 
-    // Set UI Loading pada tombol
+    // Set status tombol ke Loading
     if (playBtn) {
         playBtn.innerHTML = `<svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2 a10 10 0 0 1 10 10" fill="none"/></svg>`;
     }
 
-    showToast('Info', 'Mencari sumber audio...', 'info');
+    showToast('Info', 'Mencari sampel audio...', 'info');
 
-    // 1. Prioritas Utama: Ambil preview_url bawaan jika ada
+    // Sumber 1: Preview URL bawaan Spotify
     let audioSrc = track.preview_url || track.preview || track.audio;
 
-    // 2. Fallback: Ambil direct MP3 stream dari API Proxy Downloader
+    // Sumber 2 (Fallback Utama): Cari Sampel Audio Gratis dari iTunes API
     if (!audioSrc) {
-        const targetUrl = track.trackUrl || track.url;
-        if (targetUrl) {
-            try {
-                const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(targetUrl)}`);
-                const dlData = await res.json();
-                audioSrc = dlData?.result?.download || dlData?.data?.download || dlData?.download || dlData?.result?.link;
-            } catch (err) {
-                console.error('[Audio Fetch Error]:', err);
+        try {
+            const query = encodeURIComponent(`${track.title} ${track.artist}`);
+            const itunesRes = await fetch(`https://itunes.apple.com/search?term=${query}&media=music&entity=song&limit=1`);
+            const itunesData = await itunesRes.json();
+
+            if (itunesData.results && itunesData.results.length > 0) {
+                audioSrc = itunesData.results[0].previewUrl; // Ambil link sampel audio iTunes
             }
+        } catch (err) {
+            console.warn('[iTunes Sample Fetch Error]:', err);
         }
     }
 
-    // Jika audioSrc tetap tidak ada
+    // Sumber 3 (Fallback Terakhir): Tembak API Downloader milikmu sendiri
+    if (!audioSrc && track.trackUrl) {
+        try {
+            const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(track.trackUrl)}`);
+            const dlData = await res.json();
+            audioSrc = dlData?.result?.download || dlData?.data?.download || dlData?.download;
+        } catch (err) {
+            console.warn('[Downloader Fetch Error]:', err);
+        }
+    }
+
+    // Jika dari semua sumber tetap tidak ditemukan sampelnya
     if (!audioSrc) {
         if (playBtn) playBtn.innerHTML = originalIcon;
-        showToast('Error', 'Audio preview tidak tersedia. Silakan klik Info/Download.', 'error');
+        showToast('Error', 'Sampel audio tidak ditemukan. Silakan gunakan tombol Info untuk download.', 'error');
         return;
     }
 
-    // Reset audio sebelumnya jika ada lagu lain yang sedang main
+    // Reset audio lain yang sedang berjalan
     if (currentGlobalAudio) {
         currentGlobalAudio.pause();
         currentGlobalAudio = null;
         if (currentPlayingBtn) currentPlayingBtn.innerHTML = IC_PLAY;
     }
 
-    // Buat objek Audio baru
-    const audio = new Audio();
-    audio.dataset.trackUrl = track.trackUrl;
-    audio.src = audioSrc;
+    // Eksekusi pemutaran audio
+    const audio = new Audio(audioSrc);
+    audio.dataset.trackUrl = track.trackUrl || track.title;
 
-    // Coba putar audio
     audio.play().then(() => {
         currentGlobalAudio = audio;
         currentPlayingBtn = playBtn;
         if (playBtn) {
-            // Ubah icon tombol jadi Pause
             playBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
         }
-        showToast('Sukses', `Memutar: ${track.title || 'Lagu'}`, 'success');
-    }).catch(async (error) => {
-        console.warn('[Audio Play direct blocked, trying CORS Bypass Proxy...]', error);
-
-        // 3. Fallback Terakhir: Jika diblokir CORS Browser, gunakan Media Stream Proxy
-        try {
-            const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(audioSrc)}`;
-            audio.src = proxiedUrl;
-            await audio.play();
-            
-            currentGlobalAudio = audio;
-            currentPlayingBtn = playBtn;
-            if (playBtn) {
-                playBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
-            }
-            showToast('Sukses', `Memutar: ${track.title || 'Lagu'}`, 'success');
-        } catch (retryErr) {
-            if (playBtn) playBtn.innerHTML = originalIcon;
-            showToast('Error', 'Gagal memutar audio (Dibatasi oleh server sumber). Gunakan tombol Info/Download.', 'error');
-        }
+        showToast('Sukses', `Memutar sampel: ${track.title}`, 'success');
+    }).catch((error) => {
+        console.error('[Audio Play Error]:', error);
+        if (playBtn) playBtn.innerHTML = originalIcon;
+        showToast('Error', 'Gagal memutar audio di perangkat ini. Coba gunakan tombol Info.', 'error');
     });
 
-    // Event jika audio selesai
+    // Event ketika audio selesai diputar
     audio.onended = () => {
         if (playBtn) playBtn.innerHTML = originalIcon;
         currentGlobalAudio = null;
         currentPlayingBtn = null;
-        showToast('Info', 'Audio selesai diputar.', 'info');
+        showToast('Info', 'Sampel audio selesai.', 'info');
     };
 
-    // Event jika terjadi error di tengah jalan
+    // Event jika terjadi error saat buffering
     audio.onerror = () => {
         if (playBtn) playBtn.innerHTML = originalIcon;
-        showToast('Error', 'Koneksi audio terputus. Silakan coba lagi atau gunakan tombol Info/Download.', 'error');
+        showToast('Error', 'Gagal memuat file sampel audio.', 'error');
     };
 }
 
