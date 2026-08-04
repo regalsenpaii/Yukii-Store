@@ -798,58 +798,123 @@ function closeLyricsModal() {
 }
 
 // --- 12c. TRACK DETAIL ---
-async function fetchAndPlayTrack(enc) {
-    let track;
-    try { track = JSON.parse(decodeURIComponent(enc)); }
-    catch (e) { console.error('[Play] Parse error:', e); return; }
+let currentGlobalAudio = null;
+let currentPlayingBtn = null;
 
-    if (!track.trackUrl) {
-        showToast('Error', 'URL Spotify tidak tersedia untuk lagu ini.', 'error');
+async function fetchAndPlayTrack(tjson, btnElement) {
+    let track;
+    try {
+        track = typeof tjson === 'string' ? JSON.parse(decodeURIComponent(tjson)) : tjson;
+    } catch (e) {
+        showToast('Error', 'Gagal membaca data lagu.', 'error');
         return;
     }
 
-    showToast('Proses', 'Mengambil audio...', 'success');
-    console.log('[Play] Fetching download for trackUrl:', track.trackUrl);
+    // Ambil tombol Play yang diklik untuk ubah icon loading
+    const playBtn = btnElement || event?.currentTarget;
+    const originalIcon = playBtn ? playBtn.innerHTML : '';
 
-    try {
-        const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(track.trackUrl)}`);
-        console.log('[Play] Download proxy status:', res.status);
-
-        if (!res.ok) {
-            const err = await res.text();
-            console.error('[Play] Download error:', err.slice(0, 300));
-            showToast('Error', 'Gagal mengambil audio. Status: ' + res.status, 'error');
+    // Jika lagu yang sama sedang diputar, buat fitur Toggle (Pause/Play)
+    if (currentGlobalAudio && currentGlobalAudio.dataset.trackUrl === track.trackUrl) {
+        if (!currentGlobalAudio.paused) {
+            currentGlobalAudio.pause();
+            if (playBtn) playBtn.innerHTML = IC_PLAY;
+            showToast('Info', 'Audio di-pause', 'info');
+            return;
+        } else {
+            currentGlobalAudio.play();
+            if (playBtn) playBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+            showToast('Info', 'Melanjutkan audio', 'info');
             return;
         }
-
-        const data = await res.json();
-        console.log('[Play] Full response:', JSON.stringify(data, null, 2).substring(0, 800));
-        console.log('[Play] data.status:', data.status);
-        console.log('[Play] data.result:', data.result ? 'EXISTS' : 'MISSING');
-
-        if (!data.status || !data.result) {
-            console.error('[Play] Invalid response structure');
-            showToast('Error', 'Response server tidak valid.', 'error');
-            return;
-        }
-
-        // Try multiple possible paths for download URL
-        let downloadUrl = data.result.download || data.result.url || data.result.link || data.result.audio || data.result.audio_url || data.result.file || '';
-        console.log('[Play] downloadUrl raw:', downloadUrl);
-
-        if (!downloadUrl || typeof downloadUrl !== 'string' || !downloadUrl.startsWith('http')) {
-            console.error('[Play] No valid download URL. Available keys:', Object.keys(data.result));
-            showToast('Error', 'Link audio tidak ditemukan di response.', 'error');
-            return;
-        }
-
-        console.log('[Play] ✅ Got audio URL:', downloadUrl.substring(0, 100));
-        playSpotify(downloadUrl, data.result.title || track.title, data.result.artist || track.artist, data.result.image || track.image);
-
-    } catch (e) {
-        console.error('[Play] Exception:', e.message, e.stack);
-        showToast('Error', 'Gagal memutar: ' + e.message, 'error');
     }
+
+    // Set UI Loading pada tombol
+    if (playBtn) {
+        playBtn.innerHTML = `<svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2 a10 10 0 0 1 10 10" fill="none"/></svg>`;
+    }
+
+    showToast('Info', 'Mencari sumber audio...', 'info');
+
+    // 1. Prioritas Utama: Ambil preview_url bawaan jika ada
+    let audioSrc = track.preview_url || track.preview || track.audio;
+
+    // 2. Fallback: Ambil direct MP3 stream dari API Proxy Downloader
+    if (!audioSrc) {
+        const targetUrl = track.trackUrl || track.url;
+        if (targetUrl) {
+            try {
+                const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(targetUrl)}`);
+                const dlData = await res.json();
+                audioSrc = dlData?.result?.download || dlData?.data?.download || dlData?.download || dlData?.result?.link;
+            } catch (err) {
+                console.error('[Audio Fetch Error]:', err);
+            }
+        }
+    }
+
+    // Jika audioSrc tetap tidak ada
+    if (!audioSrc) {
+        if (playBtn) playBtn.innerHTML = originalIcon;
+        showToast('Error', 'Audio preview tidak tersedia. Silakan klik Info/Download.', 'error');
+        return;
+    }
+
+    // Reset audio sebelumnya jika ada lagu lain yang sedang main
+    if (currentGlobalAudio) {
+        currentGlobalAudio.pause();
+        currentGlobalAudio = null;
+        if (currentPlayingBtn) currentPlayingBtn.innerHTML = IC_PLAY;
+    }
+
+    // Buat objek Audio baru
+    const audio = new Audio();
+    audio.dataset.trackUrl = track.trackUrl;
+    audio.src = audioSrc;
+
+    // Coba putar audio
+    audio.play().then(() => {
+        currentGlobalAudio = audio;
+        currentPlayingBtn = playBtn;
+        if (playBtn) {
+            // Ubah icon tombol jadi Pause
+            playBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+        }
+        showToast('Sukses', `Memutar: ${track.title || 'Lagu'}`, 'success');
+    }).catch(async (error) => {
+        console.warn('[Audio Play direct blocked, trying CORS Bypass Proxy...]', error);
+
+        // 3. Fallback Terakhir: Jika diblokir CORS Browser, gunakan Media Stream Proxy
+        try {
+            const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(audioSrc)}`;
+            audio.src = proxiedUrl;
+            await audio.play();
+            
+            currentGlobalAudio = audio;
+            currentPlayingBtn = playBtn;
+            if (playBtn) {
+                playBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+            }
+            showToast('Sukses', `Memutar: ${track.title || 'Lagu'}`, 'success');
+        } catch (retryErr) {
+            if (playBtn) playBtn.innerHTML = originalIcon;
+            showToast('Error', 'Gagal memutar audio (Dibatasi oleh server sumber). Gunakan tombol Info/Download.', 'error');
+        }
+    });
+
+    // Event jika audio selesai
+    audio.onended = () => {
+        if (playBtn) playBtn.innerHTML = originalIcon;
+        currentGlobalAudio = null;
+        currentPlayingBtn = null;
+        showToast('Info', 'Audio selesai diputar.', 'info');
+    };
+
+    // Event jika terjadi error di tengah jalan
+    audio.onerror = () => {
+        if (playBtn) playBtn.innerHTML = originalIcon;
+        showToast('Error', 'Koneksi audio terputus. Silakan coba lagi atau gunakan tombol Info/Download.', 'error');
+    };
 }
 
 async function openTrackDetailModal(enc) {
