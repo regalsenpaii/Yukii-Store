@@ -97,25 +97,62 @@ function extractDownloadResult(data) {
 }
 function normalizeDownloadResult(raw) {
     if (!raw || typeof raw !== 'object') return {};
-    let image = raw.image || raw.thumbnail || raw.thumb || raw.cover || raw.artwork || raw.artworkUrl || '';
+    
+    // Image extraction
+    let image = raw.image || raw.thumbnail || raw.thumb || raw.cover || raw.artwork || raw.artworkUrl || raw.artwork_url || raw.picture || raw.img || '';
     if (!image && raw.album && typeof raw.album === 'object') {
-        image = raw.album.image || raw.album.cover || raw.album.thumbnail || '';
+        image = raw.album.image || raw.album.cover || raw.album.thumbnail || raw.album.artwork || '';
         if (!image && raw.album.images && raw.album.images[0]) {
             image = typeof raw.album.images[0] === 'string' ? raw.album.images[0] : raw.album.images[0].url;
         }
     }
-    let duration = raw.duration || raw.duration_ms || raw.length || raw.time || '0:00';
-    if (typeof duration === 'number') duration = formatDuration(duration);
+    
+    // === FIX DURATION: tambah banyak fallback field ===
+    let duration = raw.duration || raw.duration_ms || raw.durationMs || raw.length || raw.trackDuration || raw.time || raw.timelength || raw.durationText || raw.total_time || raw.play_time || raw.durasi || '0:00';
+    
+    // Kalau duration object (misal {minutes: 4, seconds: 21})
+    if (typeof duration === 'object' && duration !== null) {
+        const m = duration.minutes || 0;
+        const s = duration.seconds || 0;
+        duration = m + ':' + (s < 10 ? '0' : '') + s;
+    }
+    
+    // Kalau number, format jadi mm:ss
+    if (typeof duration === 'number') {
+        duration = formatDuration(duration);
+    }
+    
+    // Kalau string tapi bukan format mm:ss (misal "261" detik atau "261000" ms)
+    if (typeof duration === 'string') {
+        const trimmed = duration.trim();
+        // Sudah format mm:ss atau hh:mm:ss
+        if (/^\d{1,2}:\d{2}$/.test(trimmed) || /^\d{1,2}:\d{2}:\d{2}$/.test(trimmed)) {
+            duration = trimmed;
+        } else {
+            // Coba parse sebagai angka
+            const num = parseInt(trimmed, 10);
+            if (!isNaN(num) && num > 0) {
+                duration = formatDuration(num);
+            } else {
+                duration = '0:00';
+            }
+        }
+    }
+    
+    let download = raw.download || raw.url || raw.link || raw.audio || raw.audio_url || raw.file || raw.direct || raw.downloadUrl || raw.download_url || '';
+    if (!download && raw.formats && Array.isArray(raw.formats) && raw.formats[0]) {
+        download = raw.formats[0].url || raw.formats[0].download || '';
+    }
+    
     return {
-        title: raw.title || raw.name || 'Unknown',
-        artist: raw.artist || raw.artists || 'Unknown',
-        album: raw.album || '-',
+        title: raw.title || raw.name || raw.trackName || raw.track || 'Unknown',
+        artist: raw.artist || raw.artists || raw.artistName || raw.artist_name || 'Unknown',
+        album: raw.album || raw.collectionName || raw.albumName || raw.album_name || '-',
         image: image,
         duration: duration,
-        download: raw.download || raw.url || raw.link || raw.audio || ''
+        download: download
     };
 }
-
 
 // --- ANIMASI BRAND YUKI STORE (EFEK SAPU OMBAK & FALL FROM TOP) ---
 function attachYukiWaveAnimation(containerId, textId) {
