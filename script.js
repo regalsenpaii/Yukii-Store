@@ -1332,18 +1332,15 @@ function closePlayer() {
 }
 
 function showDownloadInfoModal(result, spotifyUrl) {
-    // Hapus modal lama
     const old = document.getElementById('dl-info-modal');
     if (old) old.remove();
     
-    // Lookup cache
     const cached = spotifyUrl ? trackDataMap.get(spotifyUrl) : null;
     const key = result.title && result.artist ? (result.title + '|' + result.artist).toLowerCase() : '';
     const cachedByKey = key ? trackDataMap.get(key) : null;
     const track = cached || cachedByKey || {};
     
-    // Merge: API result > cache > default
-    const m = {
+    let merged = {
         title: result.title || track.title || 'Unknown',
         artist: result.artist || track.artist || 'Unknown',
         album: result.album || track.album || '-',
@@ -1352,7 +1349,6 @@ function showDownloadInfoModal(result, spotifyUrl) {
         download: result.download || ''
     };
 
-    // Buat modal baru dengan data sudah di-merge
     const modal = document.createElement('div');
     modal.id = 'dl-info-modal';
     modal.className = 'modal-overlay';
@@ -1372,21 +1368,21 @@ function showDownloadInfoModal(result, spotifyUrl) {
             <div class="p-6 space-y-4">
                 <div class="flex flex-col items-center text-center gap-3">
                     <div class="w-32 h-32 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-lg overflow-hidden relative">
-                        <img id="dl-info-cover" src="${m.image}" alt="Cover" class="w-full h-full object-cover absolute inset-0" style="${m.image ? '' : 'display:none;'}" onerror="this.style.display='none';document.getElementById('dl-info-fallback').style.display='flex';">
-                        <div id="dl-info-fallback" class="w-full h-full flex items-center justify-center" style="${m.image ? 'display:none;' : ''}">
+                        <img id="dl-info-cover" src="${merged.image}" alt="Cover" class="w-full h-full object-cover absolute inset-0" style="${merged.image ? '' : 'display:none;'}" onerror="this.style.display='none';document.getElementById('dl-info-fallback').style.display='flex';">
+                        <div id="dl-info-fallback" class="w-full h-full flex items-center justify-center" style="${merged.image ? 'display:none;' : ''}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
                         </div>
                     </div>
                     <div>
-                        <h4 class="font-bold text-[var(--text-primary)] text-lg">${m.title}</h4>
-                        <p class="text-sm text-[var(--text-secondary)]">${m.artist}</p>
-                        <p class="text-xs text-[var(--text-muted)] mt-1">${m.album}</p>
+                        <h4 class="font-bold text-[var(--text-primary)] text-lg">${merged.title}</h4>
+                        <p class="text-sm text-[var(--text-secondary)]">${merged.artist}</p>
+                        <p class="text-xs text-[var(--text-muted)] mt-1">${merged.album}</p>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)]">
                         <p class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Durasi</p>
-                        <p class="font-semibold text-[var(--text-primary)] text-sm">${formatDuration(m.duration)}</p>
+                        <p id="dl-info-duration" class="font-semibold text-[var(--text-primary)] text-sm">${formatDuration(merged.duration)}</p>
                     </div>
                     <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)]">
                         <p class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Format</p>
@@ -1406,8 +1402,8 @@ function showDownloadInfoModal(result, spotifyUrl) {
     document.body.appendChild(modal);
 
     document.getElementById('dl-info-download-btn').onclick = () => {
-        if (m.download) {
-            window.open(m.download, '_blank');
+        if (merged.download) {
+            window.open(merged.download, '_blank');
             showToast('Sukses', 'Download dimulai!', 'success');
         } else {
             showToast('Error', 'Link download tidak tersedia.', 'error');
@@ -1416,6 +1412,35 @@ function showDownloadInfoModal(result, spotifyUrl) {
 
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
+
+    // === FIX DURATION: Fetch search API kalau duration masih 0:00 ===
+    if (!merged.duration || merged.duration === '0:00') {
+        (async () => {
+            try {
+                const searchQuery = encodeURIComponent(merged.title + ' ' + merged.artist);
+                const searchRes = await fetch(`${API_PROXY.spotifySearch}?q=${searchQuery}`);
+                const searchData = await searchRes.json();
+                
+                let rawTracks = searchData?.data || searchData?.result || [];
+                if (!Array.isArray(rawTracks) && searchData?.data?.tracks) rawTracks = searchData.data.tracks;
+                if (!Array.isArray(rawTracks) && searchData?.result?.tracks) rawTracks = searchData.result.tracks;
+                
+                if (rawTracks.length > 0) {
+                    const first = rawTracks[0];
+                    let foundDur = first.duration || first.duration_ms || first.durationMs || first.length || first.trackDuration || first.time || '0:00';
+                    if (typeof foundDur === 'number') foundDur = formatDuration(foundDur);
+                    
+                    if (foundDur && foundDur !== '0:00') {
+                        const durEl = document.getElementById('dl-info-duration');
+                        if (durEl) durEl.textContent = formatDuration(foundDur);
+                        console.log('[Info Modal] Duration enriched:', foundDur);
+                    }
+                }
+            } catch (e) {
+                console.log('[Info Modal] Duration enrich failed:', e.message);
+            }
+        })();
+    }
 }
 
 function closeDownloadInfoModal() {
