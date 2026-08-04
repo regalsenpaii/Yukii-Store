@@ -667,9 +667,6 @@ async function searchSpotify(query) {
                         </div>
                     </div>
                     <div class="track-actions">
-                        <button class="btn-play-sm" onclick="event.stopPropagation(); fetchAndPlayTrack('${tjson}')" title="Putar">
-                            ${IC_PLAY}
-                        </button>
                         <button class="btn-lyric-sm" onclick="event.stopPropagation(); openLyricsModal('${tjson}')" title="Lihat Lirik">
                             ${IC_LYRICS} Lirik
                         </button>
@@ -684,7 +681,6 @@ async function searchSpotify(query) {
             `;
         }).join('') + `</div>`;
     }
-
 }
 
 // --- 12b. LYRICS MODAL ---
@@ -960,11 +956,7 @@ async function openTrackDetailModal(enc) {
                         </div>
                     </div>
                     <div class="td-playbar">
-                        <button id="td-btn-play" class="td-btn-play" onclick="playFromDetail()">
-                            <span id="td-icon">${IC_PLAY}</span>
-                            <span id="td-text">Putar</span>
-                        </button>
-                        <button id="td-btn-dl" class="td-btn-spotify" onclick="downloadFromDetail()">
+                        <button id="td-btn-dl" class="td-btn-spotify" style="width: 100%;" onclick="downloadFromDetail()">
                             ${IC_DOWNLOAD} Download
                         </button>
                     </div>
