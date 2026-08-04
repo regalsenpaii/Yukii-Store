@@ -56,6 +56,8 @@ let dataArray = null;
 let vizFrameId = null;
 let audioErrorFired = false;
 
+const trackDataMap = new Map();
+
 // --- 5. UTILITIES ---
 function formatRupiah(price) {
     return 'Rp ' + price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -85,6 +87,35 @@ function initIcons() {
 function isPage(name) {
     return window.location.pathname.includes(name);
 }
+
+function extractDownloadResult(data) {
+    if (!data || typeof data !== 'object') return null;
+    let raw = data.result !== undefined ? data.result : (data.data !== undefined ? data.data : data);
+    if (Array.isArray(raw) && raw.length > 0) raw = raw[0];
+    if (!raw || typeof raw !== 'object') return null;
+    return raw;
+}
+function normalizeDownloadResult(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+    let image = raw.image || raw.thumbnail || raw.thumb || raw.cover || raw.artwork || raw.artworkUrl || '';
+    if (!image && raw.album && typeof raw.album === 'object') {
+        image = raw.album.image || raw.album.cover || raw.album.thumbnail || '';
+        if (!image && raw.album.images && raw.album.images[0]) {
+            image = typeof raw.album.images[0] === 'string' ? raw.album.images[0] : raw.album.images[0].url;
+        }
+    }
+    let duration = raw.duration || raw.duration_ms || raw.length || raw.time || '0:00';
+    if (typeof duration === 'number') duration = formatDuration(duration);
+    return {
+        title: raw.title || raw.name || 'Unknown',
+        artist: raw.artist || raw.artists || 'Unknown',
+        album: raw.album || '-',
+        image: image,
+        duration: duration,
+        download: raw.download || raw.url || raw.link || raw.audio || ''
+    };
+}
+
 
 // --- ANIMASI BRAND YUKI STORE (EFEK SAPU OMBAK & FALL FROM TOP) ---
 function attachYukiWaveAnimation(containerId, textId) {
@@ -1263,71 +1294,83 @@ function closePlayer() {
     document.querySelectorAll('.track-row .btn-play-sm').forEach(btn => btn.innerHTML = IC_PLAY);
 }
 
-// --- NEW: Download Info Modal ---
 function showDownloadInfoModal(result, spotifyUrl) {
-    let modal = document.getElementById('dl-info-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'dl-info-modal';
-        modal.className = 'modal-overlay';
-        modal.style.zIndex = '110';
-        modal.innerHTML = `
-            <div class="modal-backdrop" onclick="closeDownloadInfoModal()"></div>
-            <div class="modal-content" style="max-width:420px;">
-                <div class="sticky top-0 bg-[var(--modal-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between z-10 rounded-t-3xl">
-                    <div class="flex items-center gap-2">
-                        <span>${SPOTIFY_LOGO}</span>
-                        <h3 class="font-bold text-[var(--text-primary)]">Info Lagu</h3>
-                    </div>
-                    <button onclick="closeDownloadInfoModal()" class="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
+    // Hapus modal lama
+    const old = document.getElementById('dl-info-modal');
+    if (old) old.remove();
+    
+    // Lookup cache
+    const cached = spotifyUrl ? trackDataMap.get(spotifyUrl) : null;
+    const key = result.title && result.artist ? (result.title + '|' + result.artist).toLowerCase() : '';
+    const cachedByKey = key ? trackDataMap.get(key) : null;
+    const track = cached || cachedByKey || {};
+    
+    // Merge: API result > cache > default
+    const m = {
+        title: result.title || track.title || 'Unknown',
+        artist: result.artist || track.artist || 'Unknown',
+        album: result.album || track.album || '-',
+        image: result.image || track.image || track.thumb || '',
+        duration: result.duration || track.duration || '0:00',
+        download: result.download || ''
+    };
+
+    // Buat modal baru dengan data sudah di-merge
+    const modal = document.createElement('div');
+    modal.id = 'dl-info-modal';
+    modal.className = 'modal-overlay';
+    modal.style.zIndex = '110';
+    modal.innerHTML = `
+        <div class="modal-backdrop" onclick="closeDownloadInfoModal()"></div>
+        <div class="modal-content" style="max-width:420px;">
+            <div class="sticky top-0 bg-[var(--modal-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between z-10 rounded-t-3xl">
+                <div class="flex items-center gap-2">
+                    <span>${SPOTIFY_LOGO}</span>
+                    <h3 class="font-bold text-[var(--text-primary)]">Info Lagu</h3>
                 </div>
-                <div class="p-6 space-y-4">
-                    <div class="flex flex-col items-center text-center gap-3">
-                        <img id="dl-info-cover" src="" alt="Cover" class="w-32 h-32 rounded-2xl object-cover shadow-lg" onerror="this.src='https://via.placeholder.com/300x300/e2e8f0/94a3b8?text=Music';this.onerror=null;">
-                        <div>
-                            <h4 id="dl-info-title" class="font-bold text-[var(--text-primary)] text-lg"></h4>
-                            <p id="dl-info-artist" class="text-sm text-[var(--text-secondary)]"></p>
-                            <p id="dl-info-album" class="text-xs text-[var(--text-muted)] mt-1"></p>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)]">
-                            <p class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Durasi</p>
-                            <p id="dl-info-duration" class="font-semibold text-[var(--text-primary)] text-sm"></p>
-                        </div>
-                        <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)]">
-                            <p class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Format</p>
-                            <p class="font-semibold text-[var(--text-primary)] text-sm">MP3</p>
-                        </div>
-                    </div>
-                    <button id="dl-info-download-btn" class="btn-primary btn-emerald w-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Download MP3
-                    </button>
-                    <button onclick="closeDownloadInfoModal()" class="w-full py-2.5 rounded-xl border border-[var(--border-color)] text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] transition-colors">
-                        Tutup
-                    </button>
-                </div>
+                <button onclick="closeDownloadInfoModal()" class="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
             </div>
-        `;
-        document.body.appendChild(modal);
-    }
+            <div class="p-6 space-y-4">
+                <div class="flex flex-col items-center text-center gap-3">
+                    <div class="w-32 h-32 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-lg overflow-hidden relative">
+                        <img id="dl-info-cover" src="${m.image}" alt="Cover" class="w-full h-full object-cover absolute inset-0" style="${m.image ? '' : 'display:none;'}" onerror="this.style.display='none';document.getElementById('dl-info-fallback').style.display='flex';">
+                        <div id="dl-info-fallback" class="w-full h-full flex items-center justify-center" style="${m.image ? 'display:none;' : ''}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-[var(--text-primary)] text-lg">${m.title}</h4>
+                        <p class="text-sm text-[var(--text-secondary)]">${m.artist}</p>
+                        <p class="text-xs text-[var(--text-muted)] mt-1">${m.album}</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)]">
+                        <p class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Durasi</p>
+                        <p class="font-semibold text-[var(--text-primary)] text-sm">${formatDuration(m.duration)}</p>
+                    </div>
+                    <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)]">
+                        <p class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Format</p>
+                        <p class="font-semibold text-[var(--text-primary)] text-sm">MP3</p>
+                    </div>
+                </div>
+                <button id="dl-info-download-btn" class="btn-primary btn-emerald w-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download MP3
+                </button>
+                <button onclick="closeDownloadInfoModal()" class="w-full py-2.5 rounded-xl border border-[var(--border-color)] text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] transition-colors">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
 
-    const coverImg = document.getElementById('dl-info-cover');
-    coverImg.src = result.image || '';
-    coverImg.style.display = 'block';
-
-    document.getElementById('dl-info-title').textContent = result.title || 'Unknown';
-    document.getElementById('dl-info-artist').textContent = result.artist || 'Unknown';
-    document.getElementById('dl-info-album').textContent = result.album || '-';
-    document.getElementById('dl-info-duration').textContent = result.duration || '0:00';
-
-    const dlBtn = document.getElementById('dl-info-download-btn');
-    dlBtn.onclick = () => {
-        if (result.download) {
-            window.open(result.download, '_blank');
+    document.getElementById('dl-info-download-btn').onclick = () => {
+        if (m.download) {
+            window.open(m.download, '_blank');
             showToast('Sukses', 'Download dimulai!', 'success');
         } else {
             showToast('Error', 'Link download tidak tersedia.', 'error');
