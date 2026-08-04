@@ -88,6 +88,31 @@ function isPage(name) {
     return window.location.pathname.includes(name);
 }
 
+function copySpotifyLink(trackUrl) {
+    if (!trackUrl) {
+        showToast('Error', 'Link Spotify tidak tersedia untuk lagu ini.', 'error');
+        return;
+    }
+
+    navigator.clipboard.writeText(trackUrl).then(() => {
+        showToast('Sukses', 'Link Spotify berhasil disalin!', 'success');
+    }).catch(err => {
+        // Fallback jika browser memblokir clipboard API
+        const textArea = document.createElement("textarea");
+        textArea.value = trackUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showToast('Sukses', 'Link Spotify berhasil disalin!', 'success');
+        } catch (e) {
+            showToast('Error', 'Gagal menyalin link.', 'error');
+        }
+        document.body.removeChild(textArea);
+    });
+}
+
+
 function extractDownloadResult(data) {
     if (!data || typeof data !== 'object') return null;
     let raw = data.result !== undefined ? data.result : (data.data !== undefined ? data.data : data);
@@ -648,6 +673,9 @@ async function searchSpotify(query) {
                         <button class="btn-lyric-sm" onclick="event.stopPropagation(); openLyricsModal('${tjson}')" title="Lihat Lirik">
                             ${IC_LYRICS} Lirik
                         </button>
+                        <button class="btn-copy-sm" onclick="event.stopPropagation(); copySpotifyLink('${track.trackUrl}')" title="Salin Link Spotify">
+                            ${IC_EXTERNAL} Salin Link
+                        </button>
                         <button class="btn-dl-sm" onclick="event.stopPropagation(); openTrackDetailModal('${tjson}')" title="Detail & Download">
                             ${IC_INFO} Info
                         </button>
@@ -656,6 +684,7 @@ async function searchSpotify(query) {
             `;
         }).join('') + `</div>`;
     }
+
 }
 
 // --- 12b. LYRICS MODAL ---
