@@ -65,13 +65,7 @@ function formatDuration(input) {
     if (!input && input !== 0) return '0:00';
     if (typeof input === 'string') {
         const t = input.trim();
-        // Already formatted mm:ss
         if (/^\d{1,2}:\d{2}$/.test(t)) return t;
-        // Format hh:mm:ss → mm:ss
-        if (/^\d{1,2}:\d{2}:\d{2}$/.test(t)) {
-            const parts = t.split(':');
-            return parts[0] + ':' + parts[1];
-        }
         const n = parseInt(t, 10);
         if (!isNaN(n)) input = n; else return '0:00';
     }
@@ -90,100 +84,6 @@ function initIcons() {
 
 function isPage(name) {
     return window.location.pathname.includes(name);
-}
-
-// --- 5b. EXTRACT & NORMALIZE DOWNLOAD RESULT (ROBUST PARSING) ---
-function extractFirstImage(obj) {
-    if (!obj || typeof obj !== 'object') return '';
-    // Spotify-style album.images array
-    if (Array.isArray(obj.images) && obj.images[0]) {
-        if (typeof obj.images[0] === 'string') return obj.images[0];
-        if (obj.images[0].url) return obj.images[0].url;
-    }
-    if (Array.isArray(obj.image) && obj.image[0]) {
-        if (typeof obj.image[0] === 'string') return obj.image[0];
-        if (obj.image[0].url) return obj.image[0].url;
-    }
-    if (Array.isArray(obj.thumbnail) && obj.thumbnail[0]) {
-        if (typeof obj.thumbnail[0] === 'string') return obj.thumbnail[0];
-    }
-    return '';
-}
-
-function extractDownloadResult(data) {
-    // Handle passthrough responses from various APIs
-    if (!data || typeof data !== 'object') return null;
-
-    let raw = null;
-
-    // Case 1: { status: true, result: {...} }
-    if (data.result !== undefined) {
-        raw = data.result;
-    }
-    // Case 2: { status: true, data: {...} }
-    else if (data.data !== undefined) {
-        raw = data.data;
-    }
-    // Case 3: direct object
-    else {
-        raw = data;
-    }
-
-    // If array, take first item
-    if (Array.isArray(raw) && raw.length > 0) {
-        raw = raw[0];
-    }
-    if (!raw || typeof raw !== 'object') return null;
-
-    // Handle nested metadata/info/track structures
-    const candidates = [raw];
-    if (raw.metadata && typeof raw.metadata === 'object') candidates.push(raw.metadata);
-    if (raw.info && typeof raw.info === 'object') candidates.push(raw.info);
-    if (raw.track && typeof raw.track === 'object') candidates.push(raw.track);
-    if (raw.data && typeof raw.data === 'object') candidates.push(raw.data);
-    if (raw.result && typeof raw.result === 'object') candidates.push(raw.result);
-
-    // Merge all candidates into one flat object (priority: first = outermost)
-    let merged = {};
-    for (let i = candidates.length - 1; i >= 0; i--) {
-        merged = { ...candidates[i], ...merged };
-    }
-
-    return merged;
-}
-
-function normalizeDownloadResult(raw) {
-    if (!raw || typeof raw !== 'object') return {};
-
-    const title = raw.title || raw.name || raw.trackName || raw.track || raw.song || raw.songName || raw.song_name || 'Unknown';
-    const artist = raw.artist || raw.artists || raw.artistName || raw.artist_name || raw.author || raw.creator || raw.performer || 'Unknown';
-    const album = raw.album || raw.collectionName || raw.albumName || raw.album_name || raw.collection || '-';
-
-    // Image extraction with many fallbacks
-    let image = raw.image || raw.thumbnail || raw.cover || raw.artwork || raw.artworkUrl || raw.artwork_url || raw.picture || raw.img || raw.banner || raw.poster || '';
-    if (!image && raw.album && typeof raw.album === 'object') {
-        image = raw.album.image || raw.album.cover || raw.album.thumbnail || raw.album.artwork || extractFirstImage(raw.album);
-    }
-    if (!image && raw.images) image = extractFirstImage(raw);
-    if (!image && raw.thumbnails && typeof raw.thumbnails === 'object') {
-        image = raw.thumbnails.default?.url || raw.thumbnails.medium?.url || raw.thumbnails.high?.url || raw.thumbnails.standard?.url || raw.thumbnails.maxres?.url || '';
-    }
-
-    // Duration extraction
-    let duration = raw.duration || raw.duration_ms || raw.durationMs || raw.length || raw.trackDuration || raw.time || raw.timelength || raw.durationText || raw.durationStr || '0:00';
-    if (typeof duration === 'number') duration = formatDuration(duration);
-
-    // Download link extraction
-    let download = raw.download || raw.url || raw.link || raw.audio || raw.audio_url || raw.file || raw.direct || raw.downloadUrl || raw.download_url || raw.source || raw.stream || raw.streamUrl || raw.stream_url || raw.media || raw.mediaUrl || raw.media_url || '';
-    // Some APIs nest download under formats
-    if (!download && raw.formats && Array.isArray(raw.formats) && raw.formats[0]) {
-        download = raw.formats[0].url || raw.formats[0].download || raw.formats[0].audio || '';
-    }
-    if (!download && raw.links && Array.isArray(raw.links) && raw.links[0]) {
-        download = raw.links[0].url || raw.links[0].download || '';
-    }
-
-    return { title, artist, album, image, duration, download };
 }
 
 // --- ANIMASI BRAND YUKI STORE (EFEK SAPU OMBAK & FALL FROM TOP) ---
@@ -578,15 +478,14 @@ function initSpotify() {
                 const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(url)}`);
                 const data = await res.json();
 
-                // === ROBUST: Extract & normalize ===
-                const extracted = extractDownloadResult(data);
-                if (!extracted) {
+                if (!data.status || !data.result) {
                     showToast('Error', 'Gagal mengambil info lagu.', 'error');
                     return;
                 }
 
-                const result = normalizeDownloadResult(extracted);
-                showDownloadInfoModal(result, url, currentTrackData);
+                // Show info modal with download button
+                const result = data.result;
+                showDownloadInfoModal(result, url);
 
             } catch (e) {
                 console.error('[DL Form] Error:', e);
@@ -675,13 +574,13 @@ async function searchSpotify(query) {
                         </div>
                     </div>
                     <div class="track-actions">
-                        <button class="btn-play-sm" onclick="event.stopPropagation(); lastSearchTrackData = JSON.parse(decodeURIComponent('${tjson}')); fetchAndPlayTrack('${tjson}')" title="Putar">
+                        <button class="btn-play-sm" onclick="event.stopPropagation(); fetchAndPlayTrack('${tjson}')" title="Putar">
                             ${IC_PLAY}
                         </button>
-                        <button class="btn-lyric-sm" onclick="event.stopPropagation(); lastSearchTrackData = JSON.parse(decodeURIComponent('${tjson}')); openLyricsModal('${tjson}')" title="Lihat Lirik">
+                        <button class="btn-lyric-sm" onclick="event.stopPropagation(); openLyricsModal('${tjson}')" title="Lihat Lirik">
                             ${IC_LYRICS} Lirik
                         </button>
-                        <button class="btn-dl-sm" onclick="event.stopPropagation(); lastSearchTrackData = JSON.parse(decodeURIComponent('${tjson}')); openTrackDetailModal('${tjson}')" title="Detail & Download">
+                        <button class="btn-dl-sm" onclick="event.stopPropagation(); openTrackDetailModal('${tjson}')" title="Detail & Download">
                             ${IC_INFO} Info
                         </button>
                     </div>
@@ -827,38 +726,28 @@ async function fetchAndPlayTrack(enc) {
         }
 
         const data = await res.json();
-        console.log('[Play] Full response:', JSON.stringify(data, null, 2).substring(0, 1000));
+        console.log('[Play] Full response:', JSON.stringify(data, null, 2).substring(0, 800));
+        console.log('[Play] data.status:', data.status);
+        console.log('[Play] data.result:', data.result ? 'EXISTS' : 'MISSING');
 
-        // === ROBUST: Extract & normalize seperti search ===
-        const extracted = extractDownloadResult(data);
-        if (!extracted) {
-            console.error('[Play] Could not extract result from response');
-            showToast('Error', 'Format response tidak dikenali.', 'error');
+        if (!data.status || !data.result) {
+            console.error('[Play] Invalid response structure');
+            showToast('Error', 'Response server tidak valid.', 'error');
             return;
         }
 
-        const r = normalizeDownloadResult(extracted);
+        // Try multiple possible paths for download URL
+        let downloadUrl = data.result.download || data.result.url || data.result.link || data.result.audio || data.result.audio_url || data.result.file || '';
+        console.log('[Play] downloadUrl raw:', downloadUrl);
 
-        // === FIX: Merge dengan data track dari search (fallback image, album, duration) ===
-        const merged = {
-            title: r.title || track.title || 'Unknown',
-            artist: r.artist || track.artist || 'Unknown',
-            album: r.album || track.album || '-',
-            image: r.image || track.image || track.thumb || '',
-            duration: r.duration || track.duration || '0:00',
-            download: r.download || ''
-        };
-
-        console.log('[Play] Merged:', { title: merged.title, artist: merged.artist, image: merged.image ? 'YES(' + merged.image.substring(0, 60) + '...)' : 'NO', duration: merged.duration, download: merged.download ? 'YES' : 'NO' });
-
-        if (!merged.download) {
-            console.error('[Play] No valid download URL. Extracted keys:', Object.keys(extracted));
+        if (!downloadUrl || typeof downloadUrl !== 'string' || !downloadUrl.startsWith('http')) {
+            console.error('[Play] No valid download URL. Available keys:', Object.keys(data.result));
             showToast('Error', 'Link audio tidak ditemukan di response.', 'error');
             return;
         }
 
-        console.log('[Play] ✅ Got audio URL:', merged.download.substring(0, 100));
-        playSpotify(merged.download, merged.title, merged.artist, merged.image);
+        console.log('[Play] ✅ Got audio URL:', downloadUrl.substring(0, 100));
+        playSpotify(downloadUrl, data.result.title || track.title, data.result.artist || track.artist, data.result.image || track.image);
 
     } catch (e) {
         console.error('[Play] Exception:', e.message, e.stack);
@@ -969,35 +858,21 @@ async function downloadFromDetail() {
         console.log('[Download] Fetching for:', currentTrackData.trackUrl);
         const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(currentTrackData.trackUrl)}`);
         const data = await res.json();
-        console.log('[Download] Response:', JSON.stringify(data).substring(0, 800));
+        console.log('[Download] Response:', JSON.stringify(data).substring(0, 500));
 
-        // === ROBUST: Extract & normalize ===
-        const extracted = extractDownloadResult(data);
-        if (extracted) {
-            const r = normalizeDownloadResult(extracted);
-
-            // === FIX: Merge dengan currentTrackData ===
-            const merged = {
-                title: r.title || currentTrackData.title || 'lagu',
-                artist: r.artist || currentTrackData.artist || '',
-                download: r.download || ''
-            };
-
-            if (merged.download) {
-                const a = document.createElement('a');
-                a.href = merged.download;
-                a.target = '_blank';
-                a.download = merged.title + '.mp3';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                showToast('Sukses', 'Download ' + merged.title + ' dimulai!', 'success');
-            } else {
-                console.error('[Download] No download URL. Extracted keys:', Object.keys(extracted));
-                showToast('Error', 'Gagal mendapatkan link download.', 'error');
-            }
+        if (data.status && data.result && data.result.download) {
+            // Create a temporary link to force download
+            const a = document.createElement('a');
+            a.href = data.result.download;
+            a.target = '_blank';
+            a.download = (data.result.title || currentTrackData.title || 'lagu') + '.mp3';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('Sukses', 'Download ' + (data.result.title || '') + ' dimulai!', 'success');
         } else {
-            showToast('Error', 'Format response tidak dikenali.', 'error');
+            console.error('[Download] No download URL. Keys:', data.result ? Object.keys(data.result) : 'no result');
+            showToast('Error', 'Gagal mendapatkan link download.', 'error');
         }
     } catch (e) {
         console.error('[Download] Error:', e);
@@ -1389,21 +1264,7 @@ function closePlayer() {
 }
 
 // --- NEW: Download Info Modal ---
-// --- Track data from search for fallback ---
-let lastSearchTrackData = null;
-
-function showDownloadInfoModal(result, spotifyUrl, fallbackTrack) {
-    // Merge dengan data search kalau ada
-    const track = fallbackTrack || lastSearchTrackData || {};
-    const merged = {
-        title: result.title || track.title || 'Unknown',
-        artist: result.artist || track.artist || 'Unknown',
-        album: result.album || track.album || '-',
-        image: result.image || track.image || track.thumb || '',
-        duration: result.duration || track.duration || '0:00',
-        download: result.download || ''
-    };
-
+function showDownloadInfoModal(result, spotifyUrl) {
     let modal = document.getElementById('dl-info-modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -1424,12 +1285,7 @@ function showDownloadInfoModal(result, spotifyUrl, fallbackTrack) {
                 </div>
                 <div class="p-6 space-y-4">
                     <div class="flex flex-col items-center text-center gap-3">
-                        <div id="dl-info-cover-wrap" class="w-32 h-32 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-lg overflow-hidden">
-                            <img id="dl-info-cover" src="" alt="Cover" class="w-full h-full object-cover" style="display:none;" onerror="this.style.display='none';document.getElementById('dl-info-fallback-icon').style.display='flex';">
-                            <div id="dl-info-fallback-icon" class="hidden w-full h-full items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                            </div>
-                        </div>
+                        <img id="dl-info-cover" src="" alt="Cover" class="w-32 h-32 rounded-2xl object-cover shadow-lg" onerror="this.src='https://via.placeholder.com/300x300/e2e8f0/94a3b8?text=Music';this.onerror=null;">
                         <div>
                             <h4 id="dl-info-title" class="font-bold text-[var(--text-primary)] text-lg"></h4>
                             <p id="dl-info-artist" class="text-sm text-[var(--text-secondary)]"></p>
@@ -1460,26 +1316,18 @@ function showDownloadInfoModal(result, spotifyUrl, fallbackTrack) {
     }
 
     const coverImg = document.getElementById('dl-info-cover');
-    const fallbackIcon = document.getElementById('dl-info-fallback-icon');
+    coverImg.src = result.image || '';
+    coverImg.style.display = 'block';
 
-    if (merged.image) {
-        coverImg.src = merged.image;
-        coverImg.style.display = 'block';
-        if (fallbackIcon) fallbackIcon.style.display = 'none';
-    } else {
-        coverImg.style.display = 'none';
-        if (fallbackIcon) fallbackIcon.style.display = 'flex';
-    }
-
-    document.getElementById('dl-info-title').textContent = merged.title;
-    document.getElementById('dl-info-artist').textContent = merged.artist;
-    document.getElementById('dl-info-album').textContent = merged.album;
-    document.getElementById('dl-info-duration').textContent = formatDuration(merged.duration);
+    document.getElementById('dl-info-title').textContent = result.title || 'Unknown';
+    document.getElementById('dl-info-artist').textContent = result.artist || 'Unknown';
+    document.getElementById('dl-info-album').textContent = result.album || '-';
+    document.getElementById('dl-info-duration').textContent = result.duration || '0:00';
 
     const dlBtn = document.getElementById('dl-info-download-btn');
     dlBtn.onclick = () => {
-        if (merged.download) {
-            window.open(merged.download, '_blank');
+        if (result.download) {
+            window.open(result.download, '_blank');
             showToast('Sukses', 'Download dimulai!', 'success');
         } else {
             showToast('Error', 'Link download tidak tersedia.', 'error');
