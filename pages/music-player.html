@@ -463,15 +463,16 @@
     </div>
 
     <script src="../script.js"></script>
-    <script>
+    <script>    <script>
     (function() {
-        /* ===== ITUNES MUSIC PLAYER (FIXED AUDIO) ===== */
+        /* ===== ITUNES MUSIC PLAYER + KICK BEAT VISUALIZER ===== */
         let currentAudio = null;
         let audioCtx = null;
         let analyser = null;
         let source = null;
         let dataArray = null;
         let vizFrameId = null;
+        let idleFrameId = null;
         let kickEnergy = 0;
         const kickDecay = 0.92;
         let _tracks = [];
@@ -492,21 +493,18 @@
             return new Date(iso).getFullYear();
         }
 
-        /* --- INIT AUDIO CONTEXT (WAJIB DIPANGGIL SAAT USER KLIK) --- */
+        /* --- AUDIO CONTEXT --- */
         function initAudioContext() {
             if (!audioCtx) {
                 try {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    console.log('[Audio] Context created');
                 } catch (e) {
-                    console.error('[Audio] Failed to create context:', e);
+                    console.error('[Audio] Context failed:', e);
                     return null;
                 }
             }
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => {
-                    console.log('[Audio] Context resumed');
-                }).catch(e => console.error('[Audio] Resume failed:', e));
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
             }
             return audioCtx;
         }
@@ -589,7 +587,41 @@
             }
         }
 
-        /* --- PLAYBACK (FIXED) --- */
+        /* --- BUILD VIZ BARS (28 BARS) --- */
+        function buildVizBars() {
+            const vizContainer = $('mp-viz');
+            vizContainer.innerHTML = '';
+            for (let i = 0; i < 28; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'mp-viz-bar';
+                bar.style.height = '4px';
+                vizContainer.appendChild(bar);
+            }
+        }
+
+        /* --- IDLE ANIMATION (subtle wave when not playing) --- */
+        function startIdleViz() {
+            if (idleFrameId) cancelAnimationFrame(idleFrameId);
+            const bars = document.querySelectorAll('.mp-viz-bar');
+            if (!bars.length) return;
+            let t = 0;
+            function renderIdle() {
+                if (isAudioPlaying) { idleFrameId = null; return; }
+                t += 0.05;
+                bars.forEach((bar, i) => {
+                    const h = 4 + Math.sin(t + i * 0.4) * 3 + Math.sin(t * 1.3 + i * 0.2) * 2;
+                    bar.style.height = Math.max(4, h) + 'px';
+                    bar.className = 'mp-viz-bar';
+                });
+                idleFrameId = requestAnimationFrame(renderIdle);
+            }
+            renderIdle();
+        }
+        function stopIdleViz() {
+            if (idleFrameId) { cancelAnimationFrame(idleFrameId); idleFrameId = null; }
+        }
+
+        /* --- PLAYBACK --- */
         window.playITunesTrack = function(index) {
             const track = _tracks[index];
             if (!track || !track.previewUrl) {
@@ -597,7 +629,6 @@
                 return;
             }
 
-            // INIT AUDIO CONTEXT (WAJIB DI KLIK USER)
             const ctx = initAudioContext();
             if (!ctx) {
                 if (typeof showToast === 'function') showToast('Error', 'Gagal inisialisasi audio.', 'error');
@@ -605,13 +636,7 @@
             }
 
             // Stop existing
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio.currentTime = 0;
-                currentAudio.src = '';
-                currentAudio = null;
-            }
-            stopViz();
+            stopMusic(false);
             isAudioPlaying = false;
 
             // UI active state
@@ -630,68 +655,63 @@
             $('mp-genre').textContent = track.primaryGenreName || 'Music';
             $('mp-time').textContent = '0:00 / ' + (fmtDuration(track.trackTimeMillis) || '0:30');
 
-            // Build viz bars
-            const vizContainer = $('mp-viz');
-            vizContainer.innerHTML = '';
-            for (let i = 0; i < 28; i++) {
-                const bar = document.createElement('div');
-                bar.className = 'mp-viz-bar';
-                bar.style.height = '2px';
-                vizContainer.appendChild(bar);
-            }
+            buildVizBars();
+            startIdleViz(); // show subtle idle animation immediately
 
-            // === CREATE AUDIO (LANGSUNG PAKAI URL, TIDAK PAKAI BLOB) ===
+            // === CREATE AUDIO ===
             currentAudio = new Audio();
             currentAudio.crossOrigin = 'anonymous';
             currentAudio.src = track.previewUrl;
             currentAudio.preload = 'auto';
 
-            // Setup audio context dengan media element
+            // === AUDIO GRAPH SETUP ===
             try {
                 if (source) {
                     try { source.disconnect(); } catch(e) {}
                     source = null;
                 }
-                source = ctx.createMediaElementSource(currentAudio);
+                if (analyser) {
+                    try { analyser.disconnect(); } catch(e) {}
+                }
                 analyser = ctx.createAnalyser();
                 analyser.fftSize = 256;
                 analyser.smoothingTimeConstant = 0.78;
                 analyser.minDecibels = -85;
                 analyser.maxDecibels = -25;
+
+                source = ctx.createMediaElementSource(currentAudio);
                 source.connect(analyser);
                 analyser.connect(ctx.destination);
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
-                console.log('[Audio] Source connected to analyser');
             } catch (e) {
-                console.error('[Audio] Setup analyser failed:', e);
-                analyser = null;
-                dataArray = null;
+                console.error('[Audio] Graph setup failed:', e);
+                if (typeof showToast === 'function') showToast('Error', 'Visualizer gagal: ' + e.message, 'error');
             }
 
             // === EVENT HANDLERS ===
             currentAudio.addEventListener('canplaythrough', () => {
-                console.log('[Audio] Can play through');
+                console.log('[Audio] Ready');
             });
 
             currentAudio.addEventListener('play', () => {
                 isAudioPlaying = true;
+                stopIdleViz();
                 $('mp-play').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
-                if (analyser) startViz();
+                if (analyser && dataArray) startViz();
                 if (typeof showToast === 'function') showToast('Playing', `${track.trackName} — ${track.artistName}`, 'success');
             });
 
             currentAudio.addEventListener('pause', () => {
                 isAudioPlaying = false;
+                stopViz();
+                startIdleViz();
                 $('mp-play').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
-                if (vizFrameId) {
-                    cancelAnimationFrame(vizFrameId);
-                    vizFrameId = null;
-                }
             });
 
             currentAudio.addEventListener('ended', () => {
                 isAudioPlaying = false;
                 stopViz();
+                startIdleViz();
                 $('mp-progress-bar').style.width = '100%';
                 $('mp-play').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
                 card?.classList.remove('music-card-active');
@@ -702,6 +722,7 @@
                 console.error('[Audio] Error:', currentAudio.error);
                 isAudioPlaying = false;
                 stopViz();
+                startIdleViz();
                 const errMsg = currentAudio.error?.message || 'Gagal memutar audio';
                 if (typeof showToast === 'function') showToast('Error', errMsg, 'error');
                 $('mp-play').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
@@ -714,23 +735,19 @@
                 $('mp-time').textContent = fmtDuration(currentAudio.currentTime * 1000) + ' / ' + fmtDuration(currentAudio.duration * 1000);
             });
 
-            // === MULAI PLAY ===
+            // === PLAY ===
             const playPromise = currentAudio.play();
             if (playPromise !== undefined) {
                 playPromise.catch(err => {
                     console.error('[Audio] Play failed:', err);
-                    if (ctx && ctx.state === 'suspended') {
-                        ctx.resume().then(() => {
-                            currentAudio.play().catch(e2 => {
-                                console.error('[Audio] Retry failed:', e2);
-                            });
-                        });
+                    if (ctx.state === 'suspended') {
+                        ctx.resume().then(() => currentAudio.play().catch(() => {}));
                     }
                 });
             }
         };
 
-        function stopMusic() {
+        function stopMusic(hidePlayer = true) {
             if (currentAudio) {
                 currentAudio.pause();
                 currentAudio.currentTime = 0;
@@ -739,16 +756,17 @@
             }
             isAudioPlaying = false;
             stopViz();
-            $('music-player').classList.remove('show');
-            document.querySelectorAll('.music-card').forEach(c => c.classList.remove('music-card-active'));
+            stopIdleViz();
+            if (hidePlayer) {
+                $('music-player').classList.remove('show');
+                document.querySelectorAll('.music-card').forEach(c => c.classList.remove('music-card-active'));
+            }
+            $('mp-progress-bar').style.width = '0%';
         }
 
-        /* --- VISUALIZER --- */
+        /* --- KICK BEAT VISUALIZER --- */
         function startViz() {
-            if (vizFrameId) {
-                cancelAnimationFrame(vizFrameId);
-                vizFrameId = null;
-            }
+            if (vizFrameId) cancelAnimationFrame(vizFrameId);
             const bars = document.querySelectorAll('.mp-viz-bar');
             if (!bars.length || !analyser || !dataArray) return;
 
@@ -805,11 +823,11 @@
                         }
 
                         const pct = value / 255;
-                        let h = 2;
-                        if (ratio < 0.20) h = 2 + pct * 36;
-                        else if (ratio < 0.40) h = 2 + pct * 30;
-                        else if (ratio < 0.65) h = 2 + pct * 24;
-                        else h = 2 + pct * 18;
+                        let h = 4;
+                        if (ratio < 0.20) h = 4 + pct * 36;
+                        else if (ratio < 0.40) h = 4 + pct * 30;
+                        else if (ratio < 0.65) h = 4 + pct * 24;
+                        else h = 4 + pct * 18;
 
                         bar.style.height = h + 'px';
                         bar.className = 'mp-viz-bar';
@@ -823,37 +841,28 @@
         }
 
         function stopViz() {
-            if (vizFrameId) {
-                cancelAnimationFrame(vizFrameId);
-                vizFrameId = null;
-            }
+            if (vizFrameId) { cancelAnimationFrame(vizFrameId); vizFrameId = null; }
             kickEnergy = 0;
             document.querySelectorAll('.mp-viz-bar').forEach(b => {
-                b.style.height = '2px';
+                b.style.height = '4px';
                 b.className = 'mp-viz-bar';
             });
-            $('mp-progress-bar').style.width = '0%';
         }
 
         /* --- CONTROLS --- */
         $('mp-play').addEventListener('click', () => {
             if (!currentAudio) return;
-            
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-            
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             if (currentAudio.paused) {
                 currentAudio.play().catch(err => {
                     console.error('[Play] Resume failed:', err);
-                    if (typeof showToast === 'function') showToast('Error', 'Gagal melanjutkan audio.', 'error');
                 });
             } else {
                 currentAudio.pause();
             }
         });
 
-        $('mp-stop').addEventListener('click', stopMusic);
+        $('mp-stop').addEventListener('click', () => stopMusic(true));
 
         $('mp-progress-click').addEventListener('click', (e) => {
             if (!currentAudio || !currentAudio.duration) return;
@@ -871,13 +880,17 @@
 
         /* Keyboard */
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') stopMusic();
+            if (e.key === 'Escape') stopMusic(true);
             if (e.code === 'Space' && document.activeElement?.tagName !== 'INPUT') {
                 e.preventDefault();
                 $('mp-play').click();
             }
         });
+
+        /* Init idle viz on load so bars are visible */
+        buildVizBars();
+        startIdleViz();
     })();
-    </script>
+    </script></script>
 </body>
 </html>
