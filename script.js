@@ -1,6 +1,6 @@
 /* =========================================================================
-   YUKI STORE v4.0 - MULTI-PAGE SCRIPT
-   Theme Sync, Spotify Lyrics, Pinterest Grid, Invoice & Upload
+   YUKI STORE v4.0 - MULTI-PAGE SCRIPT (SPA VERSION)
+   Theme Sync, Spotify Lyrics, Pinterest Grid, Invoice, Upload & Music Player
    ========================================================================= */
 
 // --- 1. CORE & API CONFIGURATION ---
@@ -84,8 +84,11 @@ function initIcons() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+// ===== PERUBAHAN 1: isPage() untuk SPA =====
 function isPage(name) {
-    return window.location.pathname.includes(name);
+    const params = new URLSearchParams(window.location.search);
+    const currentPage = params.get('page') || 'index';
+    return currentPage === name;
 }
 
 // === TOAST SYSTEM ===
@@ -123,7 +126,6 @@ function copySpotifyLink(trackUrl) {
     navigator.clipboard.writeText(trackUrl).then(() => {
         showToast('Sukses', 'Link Spotify berhasil disalin!', 'success');
     }).catch(err => {
-        // Fallback jika browser memblokir clipboard API
         const textArea = document.createElement("textarea");
         textArea.value = trackUrl;
         document.body.appendChild(textArea);
@@ -138,7 +140,6 @@ function copySpotifyLink(trackUrl) {
     });
 }
 
-
 function extractDownloadResult(data) {
     if (!data || typeof data !== 'object') return null;
     let raw = data.result !== undefined ? data.result : (data.data !== undefined ? data.data : data);
@@ -146,10 +147,10 @@ function extractDownloadResult(data) {
     if (!raw || typeof raw !== 'object') return null;
     return raw;
 }
+
 function normalizeDownloadResult(raw) {
     if (!raw || typeof raw !== 'object') return {};
     
-    // Image extraction
     let image = raw.image || raw.thumbnail || raw.thumb || raw.cover || raw.artwork || raw.artworkUrl || raw.artwork_url || raw.picture || raw.img || '';
     if (!image && raw.album && typeof raw.album === 'object') {
         image = raw.album.image || raw.album.cover || raw.album.thumbnail || raw.album.artwork || '';
@@ -158,29 +159,23 @@ function normalizeDownloadResult(raw) {
         }
     }
     
-    // === FIX DURATION: tambah banyak fallback field ===
     let duration = raw.duration || raw.duration_ms || raw.durationMs || raw.length || raw.trackDuration || raw.time || raw.timelength || raw.durationText || raw.total_time || raw.play_time || raw.durasi || '0:00';
     
-    // Kalau duration object (misal {minutes: 4, seconds: 21})
     if (typeof duration === 'object' && duration !== null) {
         const m = duration.minutes || 0;
         const s = duration.seconds || 0;
         duration = m + ':' + (s < 10 ? '0' : '') + s;
     }
     
-    // Kalau number, format jadi mm:ss
     if (typeof duration === 'number') {
         duration = formatDuration(duration);
     }
     
-    // Kalau string tapi bukan format mm:ss (misal "261" detik atau "261000" ms)
     if (typeof duration === 'string') {
         const trimmed = duration.trim();
-        // Sudah format mm:ss atau hh:mm:ss
         if (/^\d{1,2}:\d{2}$/.test(trimmed) || /^\d{1,2}:\d{2}:\d{2}$/.test(trimmed)) {
             duration = trimmed;
         } else {
-            // Coba parse sebagai angka
             const num = parseInt(trimmed, 10);
             if (!isNaN(num) && num > 0) {
                 duration = formatDuration(num);
@@ -205,7 +200,7 @@ function normalizeDownloadResult(raw) {
     };
 }
 
-// --- ANIMASI BRAND YUKI STORE (EFEK SAPU OMBAK & FALL FROM TOP) ---
+// --- ANIMASI BRAND YUKI STORE ---
 function attachYukiWaveAnimation(containerId, textId) {
     const brandContainer = document.getElementById(containerId);
     const brandText = document.getElementById(textId);
@@ -215,7 +210,6 @@ function attachYukiWaveAnimation(containerId, textId) {
 
     let isAnimating = false;
 
-    // Pecah teks YUKI STORE menjadi span per huruf secara otomatis
     const textContent = brandText.textContent.trim();
     brandText.innerHTML = '';
     
@@ -223,7 +217,6 @@ function attachYukiWaveAnimation(containerId, textId) {
     [...textContent].forEach((char) => {
         const span = document.createElement('span');
         span.className = 'yuki-wave-letter';
-        // Menjaga spasi agar tidak runtuh
         if (char === ' ') {
             span.innerHTML = '&nbsp;';
         } else {
@@ -234,35 +227,30 @@ function attachYukiWaveAnimation(containerId, textId) {
     });
 
     brandContainer.addEventListener('click', () => {
-        if (isAnimating) return; // Mencegah spam klik berlebihan
+        if (isAnimating) return;
         isAnimating = true;
 
-        // Trigger animasi bounce pada icon
         if (brandIcon) {
             brandIcon.classList.remove('brand-icon-active');
             void brandIcon.offsetWidth;
             brandIcon.classList.add('brand-icon-active');
         }
 
-        // 1. Fase Sapu Ombak (Hilang ke bawah berurutan)
         letterSpans.forEach((span, index) => {
             setTimeout(() => {
                 span.className = 'yuki-wave-letter yuki-wave-out';
-            }, index * 35); // Delay 35ms per huruf untuk efek ombak
+            }, index * 35);
         });
 
-        // Total durasi fase 1
         const waveOutDuration = (letterSpans.length * 35) + 300;
 
-        // 2. Fase Jatuh dari Atas (Re-appear dari atas secara berurutan)
         setTimeout(() => {
             letterSpans.forEach((span, index) => {
                 setTimeout(() => {
                     span.className = 'yuki-wave-letter yuki-wave-in';
-                }, index * 40); // Delay muncul berurutan dari kiri ke kanan
+                }, index * 40);
             });
 
-            // Clean up class setelah semua animasi selesai
             const totalDuration = (letterSpans.length * 40) + 500;
             setTimeout(() => {
                 letterSpans.forEach(span => {
@@ -276,25 +264,16 @@ function attachYukiWaveAnimation(containerId, textId) {
     });
 }
 
-// Fungsi Panggil Utama
 function initYukiBrandAnimation() {
-    // Jalankan untuk Mobile Header
     attachYukiWaveAnimation('mobile-brand-click', 'yuki-mobile-text');
-    // Jalankan untuk Sidebar Desktop
     attachYukiWaveAnimation('sidebar-brand-click', 'yuki-brand-text');
 }
-
-// Jalankan saat DOM siap
-document.addEventListener('DOMContentLoaded', () => {
-    initYukiBrandAnimation();
-});
 
 // --- THEME SWITCHER LOGIC ---
 function initTheme() {
     const themeToggle = document.getElementById('theme-toggle');
     const htmlEl = document.documentElement;
 
-    // Ambil tema tersimpan (default 'dark')
     const savedTheme = localStorage.getItem('yuki_theme') || 'dark';
 
     function applyTheme(theme) {
@@ -308,20 +287,16 @@ function initTheme() {
         localStorage.setItem('yuki_theme', theme);
     }
 
-    // Jalankan pertama kali
     applyTheme(savedTheme);
 
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
             const isDark = htmlEl.classList.contains('dark') || htmlEl.getAttribute('data-theme') === 'dark';
             const newTheme = isDark ? 'light' : 'dark';
-
-            // Cukup ubah class/attribute HTML, CSS yang akan mengeksekusi animasi
             applyTheme(newTheme);
         });
     }
 }
-
 
 // --- 7. SIDEBAR MOBILE ---
 function initSidebar() {
@@ -332,13 +307,13 @@ function initSidebar() {
     function openSidebar() {
         if (sidebar) sidebar.classList.add('open');
         if (overlay) overlay.classList.remove('hidden');
-        if (menuToggle) menuToggle.classList.add('open'); // Menggunakan kelas 'open' untuk animasi garis
+        if (menuToggle) menuToggle.classList.add('open');
     }
 
     function closeSidebar() {
         if (sidebar) sidebar.classList.remove('open');
         if (overlay) overlay.classList.add('hidden');
-        if (menuToggle) menuToggle.classList.remove('open'); // Menghapus kelas 'open'
+        if (menuToggle) menuToggle.classList.remove('open');
     }
 
     if (menuToggle) {
@@ -355,7 +330,6 @@ function initSidebar() {
         overlay.addEventListener('click', closeSidebar);
     }
 
-    // Swipe to close sidebar
     let touchStartX = 0;
     let touchEndX = 0;
 
@@ -366,20 +340,19 @@ function initSidebar() {
 
         sidebar.addEventListener('touchend', (e) => {
             touchEndX = e.changedTouches[0].screenX;
-            if (touchStartX - touchEndX > 80) { // Swipe left > 80px
+            if (touchStartX - touchEndX > 80) {
                 closeSidebar();
             }
         }, { passive: true });
     }
 
-    // Swipe from edge to open
     document.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
         touchEndX = e.changedTouches[0].screenX;
-        if (touchEndX - touchStartX > 80 && touchStartX < 30) { // Swipe right from edge
+        if (touchEndX - touchStartX > 80 && touchStartX < 30) {
             openSidebar();
         }
     }, { passive: true });
@@ -547,25 +520,6 @@ function initInvoiceForm() {
     });
 }
 
-function showToast(title, message, type = 'success') {
-    const toast = document.getElementById('toast');
-    const toastTitle = document.getElementById('toast-title');
-    const toastMessage = document.getElementById('toast-message');
-    const toastIcon = document.getElementById('toast-icon');
-    if (!toast) return;
-    toastTitle.textContent = title;
-    toastMessage.textContent = message;
-    if (type === 'error') {
-        toastIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>';
-        toastIcon.className = 'w-8 h-8 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0';
-    } else {
-        toastIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>';
-        toastIcon.className = 'w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0';
-    }
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 4000);
-}
-
 // --- 12. SPOTIFY: SEARCH & LYRICS ---
 function initSpotify() {
     const form = document.getElementById('spotify-form');
@@ -577,7 +531,6 @@ function initSpotify() {
         await searchSpotify(q);
     });
 
-    // Download by URL form → Show info modal first
     const dlForm = document.getElementById('spotify-dl-form');
     if (dlForm) {
         dlForm.addEventListener('submit', async (e) => {
@@ -602,7 +555,6 @@ function initSpotify() {
                     return;
                 }
 
-                // Show info modal with download button
                 const result = data.result;
                 showDownloadInfoModal(result, url);
 
@@ -661,7 +613,6 @@ async function searchSpotify(query) {
                 if (typeof durRaw === 'string' && durRaw.includes(':')) durationStr = durRaw;
                 else durationStr = formatDuration(durRaw);
                 const genre = item.genre || item.primaryGenreName || 'Music';
-                console.log(`[Spotify] Track ${idx}: "${title}" | dur: ${durationStr} | trackUrl: ${trackUrl ? 'YES' : 'NO'}`);
                 return { title, artist, album, image, thumb, trackUrl, duration: durationStr, durationMs: typeof durRaw === 'number' ? durRaw : 0, genre };
             }).filter(Boolean);
         }
@@ -765,7 +716,6 @@ async function openLyricsModal(trackJson) {
                 cleanLyrics = data.lyrics.trim();
             }
 
-            // Extract from lyricsfile YAML if present
             if (!cleanLyrics && data?.result?.lyricsfile && typeof data.result.lyricsfile === 'string') {
                 const lf = data.result.lyricsfile;
                 const lines = lf.split('\n');
@@ -784,7 +734,6 @@ async function openLyricsModal(trackJson) {
                 if (plainLines.length) cleanLyrics = plainLines.join('\n').trim();
             }
 
-            // Last resort: find any long string in result object
             if (!cleanLyrics && data?.result && typeof data.result === 'object') {
                 for (const key in data.result) {
                     const val = data.result[key];
@@ -835,7 +784,6 @@ async function fetchAndPlayTrack(tjson, btnElement) {
     const playBtn = btnElement || event?.currentTarget;
     const originalIcon = playBtn ? playBtn.innerHTML : '';
 
-    // 1. Fitur Toggle Pause / Resume jika lagu yang sama diklik lagi
     if (currentGlobalAudio && currentGlobalAudio.dataset.trackUrl === (track.trackUrl || track.title)) {
         if (!currentGlobalAudio.paused) {
             currentGlobalAudio.pause();
@@ -850,17 +798,14 @@ async function fetchAndPlayTrack(tjson, btnElement) {
         }
     }
 
-    // Set status tombol ke Loading
     if (playBtn) {
         playBtn.innerHTML = `<svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2 a10 10 0 0 1 10 10" fill="none"/></svg>`;
     }
 
     showToast('Info', 'Mencari sampel audio...', 'info');
 
-    // Sumber 1: Preview URL bawaan Spotify
     let audioSrc = track.preview_url || track.preview || track.audio;
 
-    // Sumber 2 (Fallback Utama): Cari Sampel Audio Gratis dari iTunes API
     if (!audioSrc) {
         try {
             const query = encodeURIComponent(`${track.title} ${track.artist}`);
@@ -868,14 +813,13 @@ async function fetchAndPlayTrack(tjson, btnElement) {
             const itunesData = await itunesRes.json();
 
             if (itunesData.results && itunesData.results.length > 0) {
-                audioSrc = itunesData.results[0].previewUrl; // Ambil link sampel audio iTunes
+                audioSrc = itunesData.results[0].previewUrl;
             }
         } catch (err) {
             console.warn('[iTunes Sample Fetch Error]:', err);
         }
     }
 
-    // Sumber 3 (Fallback Terakhir): Tembak API Downloader milikmu sendiri
     if (!audioSrc && track.trackUrl) {
         try {
             const res = await fetch(`${API_PROXY.spotifyDownload}?url=${encodeURIComponent(track.trackUrl)}`);
@@ -886,21 +830,18 @@ async function fetchAndPlayTrack(tjson, btnElement) {
         }
     }
 
-    // Jika dari semua sumber tetap tidak ditemukan sampelnya
     if (!audioSrc) {
         if (playBtn) playBtn.innerHTML = originalIcon;
         showToast('Error', 'Sampel audio tidak ditemukan. Silakan gunakan tombol Info untuk download.', 'error');
         return;
     }
 
-    // Reset audio lain yang sedang berjalan
     if (currentGlobalAudio) {
         currentGlobalAudio.pause();
         currentGlobalAudio = null;
         if (currentPlayingBtn) currentPlayingBtn.innerHTML = IC_PLAY;
     }
 
-    // Eksekusi pemutaran audio
     const audio = new Audio(audioSrc);
     audio.dataset.trackUrl = track.trackUrl || track.title;
 
@@ -917,7 +858,6 @@ async function fetchAndPlayTrack(tjson, btnElement) {
         showToast('Error', 'Gagal memutar audio di perangkat ini. Coba gunakan tombol Info.', 'error');
     });
 
-    // Event ketika audio selesai diputar
     audio.onended = () => {
         if (playBtn) playBtn.innerHTML = originalIcon;
         currentGlobalAudio = null;
@@ -925,7 +865,6 @@ async function fetchAndPlayTrack(tjson, btnElement) {
         showToast('Info', 'Sampel audio selesai.', 'info');
     };
 
-    // Event jika terjadi error saat buffering
     audio.onerror = () => {
         if (playBtn) playBtn.innerHTML = originalIcon;
         showToast('Error', 'Gagal memuat file sampel audio.', 'error');
@@ -1011,11 +950,6 @@ function closeTrackDetail() {
     }
 }
 
-async function playFromDetail() {
-    if (!currentTrackData) return;
-    await fetchAndPlayTrack(encodeURIComponent(JSON.stringify(currentTrackData)));
-}
-
 async function downloadFromDetail() {
     if (!currentTrackData || !currentTrackData.trackUrl) {
         showToast('Error', 'URL Spotify tidak tersedia.', 'error');
@@ -1034,7 +968,6 @@ async function downloadFromDetail() {
         console.log('[Download] Response:', JSON.stringify(data).substring(0, 500));
 
         if (data.status && data.result && data.result.download) {
-            // Create a temporary link to force download
             const a = document.createElement('a');
             a.href = data.result.download;
             a.target = '_blank';
@@ -1142,7 +1075,7 @@ async function searchPinterest(query) {
     }
 }
 
-// --- 14. AUDIO & VISUALIZER ---
+// --- 14. AUDIO & VISUALIZER (Spotify Floating Player) ---
 function initVisualizer() {
     const player = document.getElementById('audio-player');
     if (!player) return;
@@ -1287,7 +1220,6 @@ async function playSpotify(url, title, artist, cover) {
         return;
     }
 
-    // Reset error flag
     audioErrorFired = false;
 
     currentAudioUrl = url;
@@ -1297,7 +1229,6 @@ async function playSpotify(url, title, artist, cover) {
 
     showToast('Proses', 'Memuat audio...', 'success');
 
-    // Try to fetch audio as blob first (handles redirects and CORS better)
     try {
         console.log('[Play] Fetching audio blob...');
         const response = await fetch(url, { 
@@ -1324,7 +1255,6 @@ async function playSpotify(url, title, artist, cover) {
 
     } catch (fetchErr) {
         console.warn('[Play] Blob fetch failed:', fetchErr.message, '- falling back to direct URL');
-        // Fallback: try direct URL (might work with some URLs)
         audio.crossOrigin = 'anonymous';
         audio.src = url;
         audio.load();
@@ -1403,7 +1333,7 @@ async function playSpotify(url, title, artist, cover) {
     };
 
     audio.onerror = (e) => {
-        if (audioErrorFired) return; // Prevent spam
+        if (audioErrorFired) return;
         audioErrorFired = true;
         console.error('[Audio] ❌ Error code:', audio.error?.code, 'message:', audio.error?.message);
         let errMsg = 'Format audio tidak didukung browser';
@@ -1440,7 +1370,6 @@ function showDownloadInfoModal(result, spotifyUrl) {
     const old = document.getElementById('dl-info-modal');
     if (old) old.remove();
     
-    // Normalisasi hasil dari API terlebih dahulu
     const norm = normalizeDownloadResult(result);
     const cached = spotifyUrl ? trackDataMap.get(spotifyUrl) : null;
     const key = result.title && result.artist ? (result.title + '|' + result.artist).toLowerCase() : '';
@@ -1522,7 +1451,6 @@ function showDownloadInfoModal(result, spotifyUrl) {
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
 
-    // Auto enrich jika durasi masih 0:00
     if (!merged.duration || merged.duration === '0:00') {
         (async () => {
             try {
@@ -1561,11 +1489,579 @@ function closeDownloadInfoModal() {
     }
 }
 
+// ============================================================
+// MUSIC PLAYER v3 - iTunes Search & Visualizer
+// ============================================================
+
+let musicPlayerAudio = null;
+let musicPlayerCtx = null;
+let musicPlayerAnalyser = null;
+let musicPlayerSource = null;
+let musicPlayerDataArray = null;
+let musicPlayerVizFrameId = null;
+let musicPlayerIdleFrameId = null;
+let musicPlayerKickEnergy = 0;
+const musicPlayerKickDecay = 0.92;
+let musicPlayerTracks = [];
+let musicPlayerCurrentIndex = -1;
+let musicPlayerIsPlaying = false;
+let musicPlayerIsShuffle = false;
+let musicPlayerIsRepeat = false;
+
+const $mp = (id) => document.getElementById(id);
+
+function fmtDuration(ms) {
+    if (!ms) return '0:00';
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+function fmtDate(iso) {
+    if (!iso) return '-';
+    return new Date(iso).getFullYear();
+}
+
+function initMusicPlayerAudioContext() {
+    if (!musicPlayerCtx) {
+        try { musicPlayerCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+        catch (e) { return null; }
+    }
+    if (musicPlayerCtx.state === 'suspended') musicPlayerCtx.resume().catch(()=>{});
+    return musicPlayerCtx;
+}
+
+async function searchITunes(query) {
+    const loading = $mp('itunes-loading');
+    const results = $mp('itunes-results');
+    const empty = $mp('itunes-empty');
+    
+    if (!loading || !results || !empty) {
+        console.warn('[Music Player] Elements not found, skipping search');
+        return;
+    }
+    
+    loading.classList.remove('hidden');
+    results.innerHTML = '';
+    empty.classList.add('hidden');
+
+    try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=24`);
+        const data = await res.json();
+
+        if (!data.results || !data.results.length) {
+            empty.classList.remove('hidden');
+            empty.innerHTML = `
+                <div class="w-16 h-16 rounded-2xl bg-[var(--input-bg)] flex items-center justify-center mx-auto mb-4 border border-[var(--border-color)]">
+                    <i data-lucide="music-off" class="w-8 h-8 text-[var(--text-muted)] opacity-50"></i>
+                </div>
+                <p class="text-sm text-[var(--text-muted)] font-medium">Tidak ada hasil untuk "${query}"</p>`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        musicPlayerTracks = data.results;
+        results.innerHTML = data.results.map((t, i) => {
+            const img = t.artworkUrl100 ? t.artworkUrl100.replace('100x100bb', '600x600bb') : '';
+            const dur = fmtDuration(t.trackTimeMillis);
+            const year = fmtDate(t.releaseDate);
+            const price = (t.trackPrice != null && t.currency) ? `${t.trackPrice} ${t.currency}` : '-';
+
+            return `
+            <div class="glass-card music-card group p-0 overflow-hidden transition-all duration-300" id="mc-${i}">
+                <div class="relative aspect-square overflow-hidden bg-[var(--input-bg)]">
+                    <img src="${img}" alt="${t.trackName}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy"
+                         onerror="this.src='https://via.placeholder.com/600x600/e2e8f0/94a3b8?text=No+Cover'">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <button onclick="window.yukiPlayTrack(${i})" class="play-overlay-btn absolute bottom-3 right-3 w-12 h-12 rounded-full bg-pink-500 text-white flex items-center justify-center shadow-lg shadow-pink-500/30 hover:scale-110 active:scale-95">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                </div>
+                <div class="p-4">
+                    <div class="mb-2.5">
+                        <h3 class="font-bold text-[var(--text-primary)] text-sm leading-tight line-clamp-2" title="${t.trackName}">${t.trackName}</h3>
+                        <p class="text-xs text-[var(--text-secondary)] truncate mt-0.5">${t.artistName}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 mb-3">
+                        <span class="genre-badge">${t.primaryGenreName || 'Music'}</span>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-[var(--input-bg)] border border-[var(--border-color)] text-[var(--text-muted)] font-semibold">${dur}</span>
+                    </div>
+                    <div class="space-y-1 text-[11px] text-[var(--text-muted)]">
+                        <div class="flex items-center gap-2">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                            <span class="truncate">${t.collectionName || 'Single'}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                                <span>${year}</span>
+                            </div>
+                            <span class="font-semibold text-pink-500">${price}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    } catch (e) {
+        results.innerHTML = `
+            <div class="col-span-full text-center py-10">
+                <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center mx-auto mb-3">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-red-400"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                </div>
+                <p class="text-sm text-[var(--text-muted)]">Gagal memuat: ${e.message}</p>
+            </div>`;
+    } finally {
+        loading.classList.add('hidden');
+    }
+}
+
+function buildMusicPlayerVizBars() {
+    const viz = $mp('mp-viz');
+    if (!viz) return;
+    viz.innerHTML = '';
+    for (let i = 0; i < 40; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'mp-viz-bar';
+        bar.style.height = '3px';
+        viz.appendChild(bar);
+    }
+}
+
+function startMusicPlayerIdleViz() {
+    if (musicPlayerIdleFrameId) cancelAnimationFrame(musicPlayerIdleFrameId);
+    const bars = document.querySelectorAll('.mp-viz-bar');
+    if (!bars.length) return;
+    let t = 0;
+    function renderIdle() {
+        if (musicPlayerIsPlaying) { musicPlayerIdleFrameId = null; return; }
+        t += 0.04;
+        bars.forEach((bar, i) => {
+            const h = 3 + Math.sin(t + i * 0.35) * 4 + Math.sin(t * 0.7 + i * 0.15) * 2;
+            bar.style.height = Math.max(3, Math.min(28, h)) + 'px';
+            bar.className = 'mp-viz-bar';
+        });
+        musicPlayerIdleFrameId = requestAnimationFrame(renderIdle);
+    }
+    renderIdle();
+}
+
+function stopMusicPlayerIdleViz() {
+    if (musicPlayerIdleFrameId) { cancelAnimationFrame(musicPlayerIdleFrameId); musicPlayerIdleFrameId = null; }
+}
+
+window.yukiPlayTrack = function(index) {
+    const track = musicPlayerTracks[index];
+    if (!track || !track.previewUrl) {
+        showToast('Error', 'Preview tidak tersedia.', 'error');
+        return;
+    }
+
+    const ctx = initMusicPlayerAudioContext();
+    if (!ctx) {
+        showToast('Error', 'Gagal inisialisasi audio.', 'error');
+        return;
+    }
+
+    if (musicPlayerAudio) {
+        try {
+            musicPlayerAudio.pause();
+            musicPlayerAudio.currentTime = 0;
+            musicPlayerAudio.src = '';
+        } catch(e) {}
+        musicPlayerAudio = null;
+    }
+    
+    if (musicPlayerSource) {
+        try { musicPlayerSource.disconnect(); } catch(e) {}
+        musicPlayerSource = null;
+    }
+    if (musicPlayerAnalyser) {
+        try { musicPlayerAnalyser.disconnect(); } catch(e) {}
+        musicPlayerAnalyser = null;
+    }
+    
+    stopMusicPlayerViz();
+    stopMusicPlayerIdleViz();
+    musicPlayerIsPlaying = false;
+
+    document.querySelectorAll('.music-card').forEach(c => c.classList.remove('music-card-active'));
+    const card = $mp(`mc-${index}`);
+    if (card) card.classList.add('music-card-active');
+    musicPlayerCurrentIndex = index;
+
+    const playerEl = $mp('music-player');
+    if (playerEl) playerEl.classList.add('show');
+
+    const imgUrl = track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb', '600x600bb') : '';
+    const coverEl = $mp('mp-cover');
+    if (coverEl) {
+        coverEl.src = imgUrl;
+        coverEl.style.display = '';
+    }
+    const titleEl = $mp('mp-title');
+    if (titleEl) titleEl.textContent = track.trackName;
+    const artistEl = $mp('mp-artist');
+    if (artistEl) artistEl.textContent = track.artistName;
+
+    buildMusicPlayerVizBars();
+    startMusicPlayerIdleViz();
+    updateMusicPlayerPlayButton(false);
+    
+    const progressFill = $mp('mp-progress-fill');
+    const progressThumb = $mp('mp-progress-thumb');
+    if (progressFill) progressFill.style.width = '0%';
+    if (progressThumb) progressThumb.style.left = '0%';
+
+    musicPlayerAudio = new Audio();
+    musicPlayerAudio.crossOrigin = 'anonymous';
+    musicPlayerAudio.src = track.previewUrl;
+    musicPlayerAudio.preload = 'auto';
+
+    try {
+        musicPlayerAnalyser = ctx.createAnalyser();
+        musicPlayerAnalyser.fftSize = 256;
+        musicPlayerAnalyser.smoothingTimeConstant = 0.78;
+        musicPlayerAnalyser.minDecibels = -85;
+        musicPlayerAnalyser.maxDecibels = -25;
+        musicPlayerSource = ctx.createMediaElementSource(musicPlayerAudio);
+        musicPlayerSource.connect(musicPlayerAnalyser);
+        musicPlayerAnalyser.connect(ctx.destination);
+        musicPlayerDataArray = new Uint8Array(musicPlayerAnalyser.frequencyBinCount);
+    } catch (e) {
+        console.error('[Audio] Graph failed:', e);
+    }
+
+    const playHandler = () => {
+        musicPlayerIsPlaying = true;
+        stopMusicPlayerIdleViz();
+        updateMusicPlayerPlayButton(true);
+        if (musicPlayerAnalyser && musicPlayerDataArray) startMusicPlayerViz();
+        showToast('Playing', track.trackName + ' — ' + track.artistName, 'success');
+    };
+
+    const pauseHandler = () => {
+        musicPlayerIsPlaying = false;
+        stopMusicPlayerViz();
+        startMusicPlayerIdleViz();
+        updateMusicPlayerPlayButton(false);
+    };
+
+    const endedHandler = () => {
+        musicPlayerIsPlaying = false;
+        stopMusicPlayerViz();
+        startMusicPlayerIdleViz();
+        updateMusicPlayerPlayButton(false);
+        const progressFill2 = $mp('mp-progress-fill');
+        if (progressFill2) progressFill2.style.width = '100%';
+        if (card) card.classList.remove('music-card-active');
+        
+        if (musicPlayerIsRepeat) {
+            window.yukiPlayTrack(index);
+        } else if (musicPlayerIsShuffle) {
+            playMusicPlayerShuffle();
+        } else {
+            playMusicPlayerNext();
+        }
+    };
+
+    const timeUpdateHandler = () => {
+        if (!musicPlayerAudio || !musicPlayerAudio.duration) return;
+        const pct = (musicPlayerAudio.currentTime / musicPlayerAudio.duration) * 100;
+        const progressFill3 = $mp('mp-progress-fill');
+        const progressThumb3 = $mp('mp-progress-thumb');
+        if (progressFill3) progressFill3.style.width = pct + '%';
+        if (progressThumb3) progressThumb3.style.left = pct + '%';
+    };
+
+    const errorHandler = (e) => {
+        console.error('[Audio Error]', e);
+        musicPlayerIsPlaying = false;
+        stopMusicPlayerViz();
+        startMusicPlayerIdleViz();
+        updateMusicPlayerPlayButton(false);
+        showToast('Error', 'Gagal memutar audio', 'error');
+    };
+
+    musicPlayerAudio.removeEventListener('play', playHandler);
+    musicPlayerAudio.removeEventListener('pause', pauseHandler);
+    musicPlayerAudio.removeEventListener('ended', endedHandler);
+    musicPlayerAudio.removeEventListener('timeupdate', timeUpdateHandler);
+    musicPlayerAudio.removeEventListener('error', errorHandler);
+
+    musicPlayerAudio.addEventListener('play', playHandler);
+    musicPlayerAudio.addEventListener('pause', pauseHandler);
+    musicPlayerAudio.addEventListener('ended', endedHandler);
+    musicPlayerAudio.addEventListener('timeupdate', timeUpdateHandler);
+    musicPlayerAudio.addEventListener('error', errorHandler);
+
+    musicPlayerAudio.play().catch(err => {
+        console.error('[Play]', err);
+        if (ctx.state === 'suspended') {
+            ctx.resume().then(() => {
+                musicPlayerAudio.play().catch(() => {
+                    showToast('Error', 'Gagal memutar audio', 'error');
+                });
+            });
+        } else {
+            showToast('Error', 'Gagal memutar audio', 'error');
+        }
+    });
+};
+
+function playMusicPlayerShuffle() {
+    if (musicPlayerTracks.length === 0) return;
+    let idx = Math.floor(Math.random() * musicPlayerTracks.length);
+    if (idx === musicPlayerCurrentIndex && musicPlayerTracks.length > 1) {
+        idx = (idx + 1) % musicPlayerTracks.length;
+    }
+    window.yukiPlayTrack(idx);
+}
+
+function toggleMusicPlayerPlayPause() {
+    if (!musicPlayerAudio) {
+        if (musicPlayerTracks.length > 0 && musicPlayerCurrentIndex === -1) {
+            window.yukiPlayTrack(0);
+        }
+        return;
+    }
+    
+    if (musicPlayerCtx && musicPlayerCtx.state === 'suspended') {
+        musicPlayerCtx.resume().catch(() => {});
+    }
+    
+    if (musicPlayerAudio.paused) {
+        musicPlayerAudio.play().catch((err) => {
+            console.error('[Play]', err);
+            showToast('Error', 'Gagal melanjutkan pemutaran', 'error');
+        });
+    } else {
+        musicPlayerAudio.pause();
+    }
+}
+
+function updateMusicPlayerPlayButton(playing) {
+    const icon = $mp('mp-play-icon');
+    if (!icon) return;
+    if (playing) {
+        icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    } else {
+        icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+    }
+}
+
+function playMusicPlayerPrev() {
+    if (musicPlayerTracks.length === 0) return;
+    let idx = musicPlayerCurrentIndex - 1;
+    if (idx < 0) idx = musicPlayerTracks.length - 1;
+    window.yukiPlayTrack(idx);
+}
+
+function playMusicPlayerNext() {
+    if (musicPlayerTracks.length === 0) return;
+    let idx = musicPlayerCurrentIndex + 1;
+    if (idx >= musicPlayerTracks.length) idx = 0;
+    window.yukiPlayTrack(idx);
+}
+
+function stopMusicPlayer() {
+    if (musicPlayerAudio) {
+        try {
+            musicPlayerAudio.pause();
+            musicPlayerAudio.currentTime = 0;
+            musicPlayerAudio.src = '';
+        } catch(e) {}
+        musicPlayerAudio = null;
+    }
+    musicPlayerIsPlaying = false;
+    stopMusicPlayerViz();
+    stopMusicPlayerIdleViz();
+    const playerEl = $mp('music-player');
+    if (playerEl) playerEl.classList.remove('show');
+    document.querySelectorAll('.music-card').forEach(c => c.classList.remove('music-card-active'));
+    musicPlayerCurrentIndex = -1;
+    showToast('Info', 'Pemutaran dihentikan', 'info');
+}
+
+function startMusicPlayerViz() {
+    if (musicPlayerVizFrameId) cancelAnimationFrame(musicPlayerVizFrameId);
+    const bars = document.querySelectorAll('.mp-viz-bar');
+    if (!bars.length || !musicPlayerAnalyser || !musicPlayerDataArray) return;
+
+    function render() {
+        if (!musicPlayerIsPlaying || !musicPlayerAudio || musicPlayerAudio.paused) {
+            musicPlayerVizFrameId = requestAnimationFrame(render);
+            return;
+        }
+        try {
+            musicPlayerAnalyser.getByteFrequencyData(musicPlayerDataArray);
+            const binCount = musicPlayerDataArray.length;
+            const bassEnd = Math.floor(binCount * 0.08);
+            const lowMidEnd = Math.floor(binCount * 0.18);
+            const midEnd = Math.floor(binCount * 0.40);
+            const highEnd = Math.floor(binCount * 0.70);
+
+            const bassBins = musicPlayerDataArray.slice(0, bassEnd);
+            const lowMidBins = musicPlayerDataArray.slice(bassEnd, lowMidEnd);
+            const midBins = musicPlayerDataArray.slice(lowMidEnd, midEnd);
+            const highBins = musicPlayerDataArray.slice(midEnd, highEnd);
+
+            const bassAvg = bassBins.reduce((a,b)=>a+b,0) / (bassBins.length||1) / 255;
+
+            musicPlayerKickEnergy = Math.max(bassAvg, musicPlayerKickEnergy * musicPlayerKickDecay);
+            const isKick = musicPlayerKickEnergy > 0.55;
+
+            if (isKick) {
+                const cover = $mp('mp-cover');
+                if (cover && !cover.classList.contains('kick-beat')) {
+                    cover.classList.add('kick-beat');
+                    setTimeout(() => cover.classList.remove('kick-beat'), 180);
+                }
+            }
+
+            bars.forEach((bar, i) => {
+                const ratio = i / bars.length;
+                let value = 0;
+                if (ratio < 0.20) {
+                    const idx = Math.floor((ratio / 0.20) * bassBins.length);
+                    value = bassBins[Math.min(idx, bassBins.length-1)] || 0;
+                } else if (ratio < 0.40) {
+                    const idx = Math.floor(((ratio-0.20) / 0.20) * lowMidBins.length);
+                    value = lowMidBins[Math.min(idx, lowMidBins.length-1)] || 0;
+                } else if (ratio < 0.65) {
+                    const idx = Math.floor(((ratio-0.40) / 0.25) * midBins.length);
+                    value = midBins[Math.min(idx, midBins.length-1)] || 0;
+                } else {
+                    const idx = Math.floor(((ratio-0.65) / 0.35) * highBins.length);
+                    value = highBins[Math.min(idx, highBins.length-1)] || 0;
+                }
+
+                const pct = value / 255;
+                let h = 3;
+                if (ratio < 0.20) h = 3 + pct * 28;
+                else if (ratio < 0.40) h = 3 + pct * 22;
+                else if (ratio < 0.65) h = 3 + pct * 16;
+                else h = 3 + pct * 12;
+
+                bar.style.height = h + 'px';
+                bar.className = 'mp-viz-bar';
+                if (isKick && ratio < 0.10) bar.classList.add('kick');
+            });
+        } catch(e) {}
+        musicPlayerVizFrameId = requestAnimationFrame(render);
+    }
+    render();
+}
+
+function stopMusicPlayerViz() {
+    if (musicPlayerVizFrameId) { cancelAnimationFrame(musicPlayerVizFrameId); musicPlayerVizFrameId = null; }
+    musicPlayerKickEnergy = 0;
+    document.querySelectorAll('.mp-viz-bar').forEach(b => {
+        b.style.height = '3px';
+        b.className = 'mp-viz-bar';
+    });
+}
+
+// === INIT MUSIC PLAYER ===
+function initMusicPlayer() {
+    console.log('[Music Player] Initializing...');
+    
+    const form = document.getElementById('itunes-form');
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const q = document.getElementById('itunes-query')?.value.trim();
+            if (q) searchITunes(q);
+        });
+    }
+
+    const playBtn = document.getElementById('mp-play');
+    if (playBtn) {
+        playBtn.addEventListener('click', toggleMusicPlayerPlayPause);
+    }
+
+    const prevBtn = document.getElementById('mp-prev');
+    if (prevBtn) {
+        prevBtn.addEventListener('click', playMusicPlayerPrev);
+    }
+
+    const nextBtn = document.getElementById('mp-next');
+    if (nextBtn) {
+        nextBtn.addEventListener('click', playMusicPlayerNext);
+    }
+
+    const closeBtn = document.getElementById('mp-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', stopMusicPlayer);
+    }
+
+    const shuffleBtn = document.getElementById('mp-shuffle');
+    if (shuffleBtn) {
+        shuffleBtn.addEventListener('click', () => {
+            musicPlayerIsShuffle = !musicPlayerIsShuffle;
+            shuffleBtn.classList.toggle('active', musicPlayerIsShuffle);
+            showToast('Shuffle', musicPlayerIsShuffle ? 'Mode shuffle aktif' : 'Mode shuffle nonaktif', 'info');
+        });
+    }
+
+    const repeatBtn = document.getElementById('mp-repeat');
+    if (repeatBtn) {
+        repeatBtn.addEventListener('click', () => {
+            musicPlayerIsRepeat = !musicPlayerIsRepeat;
+            repeatBtn.classList.toggle('active', musicPlayerIsRepeat);
+            showToast('Repeat', musicPlayerIsRepeat ? 'Mode repeat aktif' : 'Mode repeat nonaktif', 'info');
+        });
+    }
+
+    const progressClick = document.getElementById('mp-progress-click');
+    if (progressClick) {
+        progressClick.addEventListener('click', (e) => {
+            if (!musicPlayerAudio || !musicPlayerAudio.duration) return;
+            const rect = progressClick.getBoundingClientRect();
+            const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            musicPlayerAudio.currentTime = pct * musicPlayerAudio.duration;
+        });
+    }
+
+    buildMusicPlayerVizBars();
+    startMusicPlayerIdleViz();
+
+    // Expose for global use (dari music player)
+    window.showToast = showToast;
+    window.stopMusic = stopMusicPlayer;
+    window.togglePlayPause = toggleMusicPlayerPlayPause;
+
+    console.log('🎵 Music Player v3 loaded successfully!');
+}
+
+// Keyboard shortcut for music player
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const player = document.getElementById('music-player');
+        if (player?.classList.contains('show')) {
+            stopMusicPlayer();
+        }
+    }
+    if (e.code === 'Space' && document.activeElement?.tagName !== 'INPUT') {
+        const player = document.getElementById('music-player');
+        if (player?.classList.contains('show')) {
+            e.preventDefault();
+            toggleMusicPlayerPlayPause();
+        }
+    }
+});
+
 // --- 15. KEYBOARD ---
 function initKeyboard() {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            closeModal(); closePlayer(); closeTrackDetail(); closeLyricsModal();
+            closeModal(); 
+            closePlayer(); 
+            closeTrackDetail(); 
+            closeLyricsModal();
+            // Jangan tutup music player di sini karena udah ada handler sendiri
         }
     });
 }
@@ -1575,37 +2071,88 @@ function initLoader() {
     const loader = document.getElementById("proseka-loader");
     const progressBar = document.getElementById("loader-progress-bar");
     const percentageText = document.getElementById("loader-percentage");
-    if (!loader || !progressBar || !percentageText) return;
+
+    if (!loader || !progressBar || !percentageText) {
+        console.log('[Loader] Elements not found');
+        return;
+    }
+
+    // Stop any existing animation on this loader
+    if (loader.dataset.loaderAnim === 'running') {
+        console.log('[Loader] Already running');
+        return;
+    }
+
+    console.log('[Loader] Starting animation');
+    loader.dataset.loaderAnim = 'running';
+
+    // Reset visual state
+    loader.style.opacity = '1';
+    loader.style.pointerEvents = 'auto';
+    loader.style.display = 'flex';
+    loader.classList.remove('opacity-0');
+    progressBar.style.width = '0%';
+    percentageText.textContent = '0%';
+
     let progress = 0;
-    const loadingInterval = setInterval(() => {
-        progress += Math.floor(Math.random() * 11) + 5;
+    const step = () => {
+        progress += Math.floor(Math.random() * 12) + 8;
+        if (progress > 100) progress = 100;
+
+        progressBar.style.width = progress + '%';
+        percentageText.textContent = progress + '%';
+
         if (progress >= 100) {
-            progress = 100;
-            clearInterval(loadingInterval);
             setTimeout(() => {
-                loader.classList.add("opacity-0");
-                loader.style.pointerEvents = "none";
-                setTimeout(() => { loader.remove(); }, 500);
+                loader.classList.add('opacity-0');
+                loader.style.pointerEvents = 'none';
+                loader.dataset.loaderAnim = 'done';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 500);
             }, 400);
+        } else {
+            setTimeout(step, 70);
         }
-        progressBar.style.width = `${progress}%`;
-        percentageText.innerText = `${progress}%`;
-    }, 80);
+    };
+
+    step();
 }
 
-// --- 17. INIT ---
+// ===== PERUBAHAN 2: INIT untuk SPA =====
+function initPageSpecific() {
+    const params = new URLSearchParams(window.location.search);
+    const page = params.get('page') || 'index';
+    
+    if (page === 'pterodactyl') renderPanelProducts();
+    if (page === 'spotify') initSpotify();
+    if (page === 'pinterest') initPinterest();
+    if (page === 'music-player') initMusicPlayer(); // ⚠️ TAMBAHKAN!
+}
+
+// INIT PERTAMA KALI
 document.addEventListener('DOMContentLoaded', () => {
+    initIcons();
+    initKeyboard();
+    initLoader();
+});
+
+// RE-INIT SAAT NAVIGASI SPA (pindah halaman tanpa reload)
+document.addEventListener('page-loaded', function(e) {
+    const page = e.detail.page;
+    
+    // Re-init fungsi yang perlu direset
     initTheme();
     initIcons();
     initSidebar();
     initInvoiceForm();
-    initKeyboard();
-    initLoader();
     initYukiBrandAnimation();
-
-    if (isPage('pterodactyl')) renderPanelProducts();
-    if (isPage('spotify')) initSpotify();
-    if (isPage('pinterest')) initPinterest();
+    
+    // Init sesuai halaman
+    if (page === 'pterodactyl') renderPanelProducts();
+    if (page === 'spotify') initSpotify();
+    if (page === 'pinterest') initPinterest();
+    if (page === 'music-player') initMusicPlayer();
 });
 
 window.addEventListener('load', () => {
