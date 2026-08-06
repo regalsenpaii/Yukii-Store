@@ -467,15 +467,104 @@ async function uploadToMyCDNYuki(file) {
     });
 }
 
-// --- 11. INVOICE FORM ---
+// --- UPLOAD PREVIEW MODAL ---
+function showUploadPreviewModal(imageUrl, fileName, onContinue) {
+    let modal = document.getElementById('upload-preview-modal');
+    if (modal) modal.remove();
+    
+    modal = document.createElement('div');
+    modal.id = 'upload-preview-modal';
+    modal.className = 'modal-overlay';
+    modal.style.zIndex = '120';
+    modal.innerHTML = `
+        <div class="modal-backdrop" onclick="closeUploadPreviewModal()"></div>
+        <div class="modal-content" style="max-width:420px;">
+            <div class="p-6 space-y-4">
+                <div class="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-[var(--text-primary)] text-lg">Upload Berhasil!</h3>
+                    <p class="text-sm text-[var(--text-muted)] mt-1">Gambar berhasil dihost di CDN</p>
+                </div>
+                
+                <!-- Thumbnail Preview -->
+                <div class="rounded-2xl overflow-hidden border border-[var(--border-color)] bg-[var(--input-bg)]">
+                    <img src="${imageUrl}" alt="Preview" class="w-full max-h-56 object-contain bg-black/5" 
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                    <div style="display:none;" class="h-32 flex items-center justify-center text-[var(--text-muted)] text-sm">Preview tidak tersedia</div>
+                </div>
+                
+                <!-- Link CDN -->
+                <div class="bg-[var(--input-bg)] rounded-xl p-3 border border-[var(--border-color)] flex items-center gap-2">
+                    <input type="text" value="${imageUrl}" readonly 
+                           class="bg-transparent text-xs text-[var(--text-secondary)] flex-1 outline-none font-mono" 
+                           id="upload-preview-url">
+                    <button onclick="copyUploadLink()" class="p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors" title="Salin Link">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                </div>
+                
+                <button onclick="window._uploadContinueCallback && window._uploadContinueCallback()" class="btn-primary w-full flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    Kirim ke WhatsApp
+                </button>
+                <button onclick="closeUploadPreviewModal()" class="w-full py-2.5 rounded-xl border border-[var(--border-color)] text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] transition-colors">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Simpan callback global biar tombol di dalam modal bisa akses
+    window._uploadContinueCallback = () => {
+        closeUploadPreviewModal();
+        if (onContinue) onContinue();
+    };
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    showToast('Sukses', 'File berhasil diupload ke CDN!', 'success');
+}
+
+function closeUploadPreviewModal() {
+    const modal = document.getElementById('upload-preview-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        setTimeout(() => {
+            modal.remove();
+            window._uploadContinueCallback = null;
+        }, 300);
+    }
+    if (!document.getElementById('invoice-modal')?.classList.contains('active')) {
+        document.body.style.overflow = '';
+    }
+}
+
+function copyUploadLink() {
+    const input = document.getElementById('upload-preview-url');
+    if (!input) return;
+    navigator.clipboard.writeText(input.value).then(() => {
+        showToast('Sukses', 'Link CDN disalin!', 'success');
+    }).catch(() => {
+        input.select();
+        document.execCommand('copy');
+        showToast('Sukses', 'Link CDN disalin!', 'success');
+    });
+}
+
+
 function initInvoiceForm() {
     const form = document.getElementById('invoice-form');
     if (!form) return;
+    
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const buyerName = document.getElementById('buyer-name').value.trim();
         const buyerWa = document.getElementById('buyer-wa').value.trim();
         const proofFile = document.getElementById('buyer-proof').files[0];
+        
         if (!buyerName) { showToast('Error', 'Nama pembeli wajib diisi!', 'error'); return; }
         if (!buyerWa) { showToast('Error', 'Nomor WhatsApp wajib diisi!', 'error'); return; }
         if (!proofFile) { showToast('Error', 'Silakan upload bukti transfer!', 'error'); return; }
@@ -483,42 +572,64 @@ function initInvoiceForm() {
             showToast('Error', 'Ukuran gambar terlalu besar! Maksimal 5MB.', 'error');
             return;
         }
+        
         const submitBtn = form.querySelector('button[type="submit"]');
         const originalBtnText = submitBtn ? submitBtn.innerHTML : 'Kirim Bukti Pembayaran';
         if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '⏳ Memproses...'; }
+        
         showToast('Proses', 'Sedang mengunggah bukti transfer...', 'success');
+        
         let cdnLink = null;
         let uploadError = null;
         try { cdnLink = await uploadToMyCDNYuki(proofFile); }
         catch (cdnError) { uploadError = cdnError.message; }
-        let textMessage = '🛒 *ORDER BARU - YUKI STORE*\n\n' +
-                          '📦 *Produk:* ' + currentModalProduct.name + '\n' +
-                          '💰 *Harga:* ' + formatRupiah(currentModalProduct.price) + '\n' +
-                          '👤 *Nama:* ' + buyerName + '\n' +
-                          '📱 *WhatsApp:* ' + buyerWa + '\n\n';
-        if (cdnLink) {
-            textMessage += '🖼️ *BUKTI TRANSFER:*\n' + cdnLink + '\n\n✅ *Bukti berhasil dihost di CDN.*';
-        } else {
-            textMessage += '⚠️ *BUKTI TRANSFER:*\n_(Upload otomatis gagal: ' + (uploadError || 'Network/Auth') + ')_\nMohon lampirkan bukti transfer langsung di chat ini ya kak!';
-        }
-        textMessage += '\n\nMohon segera diproses ya kak! 🙏';
-        const phone = '6288246387665';
-        const encodedText = encodeURIComponent(textMessage);
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; }
-        closeModal();
-        if (isMobile) {
-            const deepLink = `whatsapp://send?phone=${phone}&text=${encodedText}`;
-            window.location.href = deepLink;
-            setTimeout(() => {
-                if (document.hidden) return;
-                window.location.href = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedText}`;
-            }, 2000);
+        
+        if (cdnLink) {
+            // ✅ Munculin preview thumbnail dulu, baru kirim WA pas user klik
+            showUploadPreviewModal(cdnLink, proofFile.name, () => {
+                sendInvoiceToWhatsApp(buyerName, buyerWa, cdnLink, uploadError);
+            });
         } else {
-            window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodedText}`, '_blank');
+            // Upload gagal, langsung ke WA tanpa gambar
+            sendInvoiceToWhatsApp(buyerName, buyerWa, null, uploadError);
         }
     });
 }
+
+// Extract WhatsApp sender biar rapi
+function sendInvoiceToWhatsApp(buyerName, buyerWa, cdnLink, uploadError) {
+    let textMessage = '🛒 *ORDER BARU - YUKI STORE*\n\n' +
+                      '📦 *Produk:* ' + currentModalProduct.name + '\n' +
+                      '💰 *Harga:* ' + formatRupiah(currentModalProduct.price) + '\n' +
+                      '👤 *Nama:* ' + buyerName + '\n' +
+                      '📱 *WhatsApp:* ' + buyerWa + '\n\n';
+    if (cdnLink) {
+        textMessage += '🖼️ *BUKTI TRANSFER:*\n' + cdnLink + '\n\n✅ *Bukti berhasil dihost di CDN.*';
+    } else {
+        textMessage += '⚠️ *BUKTI TRANSFER:*\n_(Upload otomatis gagal: ' + (uploadError || 'Network/Auth') + ')_\nMohon lampirkan bukti transfer langsung di chat ini ya kak!';
+    }
+    textMessage += '\n\nMohon segera diproses ya kak! 🙏';
+    
+    const phone = '6288246387665';
+    const encodedText = encodeURIComponent(textMessage);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    closeModal();
+    
+    if (isMobile) {
+        const deepLink = `whatsapp://send?phone=${phone}&text=${encodedText}`;
+        window.location.href = deepLink;
+        setTimeout(() => {
+            if (document.hidden) return;
+            window.location.href = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedText}`;
+        }, 2000);
+    } else {
+        window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodedText}`, '_blank');
+    }
+}
+
 
 // --- 12. SPOTIFY: SEARCH & LYRICS ---
 function initSpotify() {
