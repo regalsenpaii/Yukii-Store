@@ -103,7 +103,7 @@ const SCRIPT_YUKI_HTML = `<aside id="sidebar" class="overflow-x-hidden overflow-
                 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
                     <div class="flex-1">
                         <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-100/80 border border-violet-200 text-violet-700 text-xs font-bold mb-4">
-                            <i data-lucide="star" class="w-3.5 h-3.5 fill-current"></i>v12.0.0 Stable
+                            <i data-lucide="star" class="w-3.5 h-3.5 fill-current"></i>v14.0.0 Stable
                         </div>
                         <h3 class="text-3xl font-bold text-[var(--text-primary)] mb-3">Script Yuki AI</h3>
                         <p class="text-[var(--text-secondary)] text-sm mb-6 max-w-lg leading-relaxed">Script bot WhatsApp dengan teknologi modern, ringan, dan fitur lengkap. Cocok untuk pemula maupun profesional.</p>
@@ -123,7 +123,7 @@ const SCRIPT_YUKI_HTML = `<aside id="sidebar" class="overflow-x-hidden overflow-
                             <p class="text-4xl font-bold text-violet-600">Rp 80.000</p>
                             <p class="text-xs text-emerald-600 font-semibold mt-1">Diskon 47% - Terbatas!</p>
                         </div>
-                        <button onclick="openModal('Script Yuki AI v12.0.0 Stable', 80000)" class="btn-primary btn-violet px-10 py-4 text-sm"><i data-lucide="download" class="w-4 h-4"></i>Beli Sekarang</button>
+                        <button onclick="openModal('Script Yuki AI v14.0.0 Stable', 80000)" class="btn-primary btn-violet px-10 py-4 text-sm"><i data-lucide="download" class="w-4 h-4"></i>Beli Sekarang</button>
                     </div>
                 </div>
             </div>
