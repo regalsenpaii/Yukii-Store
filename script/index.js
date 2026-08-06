@@ -149,7 +149,7 @@ const INDEX_HTML = `
                             <i data-lucide="code-2" class="w-6 h-6 text-white"></i>
                         </div>
                         <h3 class="font-bold text-[var(--text-primary)] mb-1">Script Yuki AI</h3>
-                        <p class="text-sm text-[var(--text-muted)] mb-4">v12.0.0 Stable dengan 1000+ fitur</p>
+                        <p class="text-sm text-[var(--text-muted)] mb-4">v14.0.0 Stable dengan 1000+ fitur</p>
                         <span class="text-xs font-semibold text-violet-600 flex items-center gap-1">Lihat Produk <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
                     </a>
                     <a href="?page=spotify" class="glass-card glass-card-green group p-6 text-left no-underline">
