@@ -2119,17 +2119,47 @@ function initLoader() {
     step();
 }
 
-// --- ANIME PLAYER ---
-function initAnimePlayer() {
-    const form = document.getElementById('anime-form');
-    if (!form) return;
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const url = document.getElementById('anime-url')?.value.trim();
-        if (url) scrapeAnime(url);
-    });
+// --- ANIME PLAYER v2 - Jikan API Search ---
+let animeSearchResults = [];
 
+function initAnimePlayer() {
+    const searchBtn = document.getElementById('anime-search-btn');
+    const queryInput = document.getElementById('anime-query');
+    const backBtn = document.getElementById('anime-back-btn');
+    const backDetailBtn = document.getElementById('anime-back-detail');
     const manualForm = document.getElementById('manual-embed-form');
+
+    // Search via button click
+    if (searchBtn) {
+        searchBtn.addEventListener('click', () => {
+            const q = queryInput?.value.trim();
+            if (q) searchAnime(q);
+        });
+    }
+
+    // Search via Enter key
+    if (queryInput) {
+        queryInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const q = queryInput.value.trim();
+                if (q) searchAnime(q);
+            }
+        });
+    }
+
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            showAnimeView('empty');
+        });
+    }
+
+    if (backDetailBtn) {
+        backDetailBtn.addEventListener('click', () => {
+            showAnimeView('results');
+        });
+    }
+
     if (manualForm) {
         manualForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -2139,67 +2169,123 @@ function initAnimePlayer() {
     }
 }
 
-async function scrapeAnime(url) {
+function showAnimeView(view) {
     const loading = document.getElementById('anime-loading');
+    const results = document.getElementById('anime-results');
     const section = document.getElementById('anime-section');
     const empty = document.getElementById('anime-empty');
-    const manual = document.getElementById('anime-manual');
 
-    if (loading) loading.classList.remove('hidden');
-    if (section) section.classList.add('hidden');
-    if (empty) empty.classList.add('hidden');
-    if (manual) manual.classList.add('hidden');
+    [loading, results, section, empty].forEach(el => el?.classList.add('hidden'));
+
+    if (view === 'loading' && loading) loading.classList.remove('hidden');
+    if (view === 'results' && results) results.classList.remove('hidden');
+    if (view === 'detail' && section) section.classList.remove('hidden');
+    if (view === 'empty' && empty) empty.classList.remove('hidden');
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+async function searchAnime(query) {
+    showAnimeView('loading');
 
     try {
-        const res = await fetch(`/api/scrape-anime?url=${encodeURIComponent(url)}`);
-        const json = await res.json();
+        const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=24&sfw=true`);
+        const data = await res.json();
 
-        if (!json.success) {
-            if (json.cloudflare) {
-                if (manual) manual.classList.remove('hidden');
-                showToast('Cloudflare', 'Auto-scrape terhalang. Gunakan mode manual.', 'info');
-                return;
+        if (!data.data || data.data.length === 0) {
+            showAnimeView('empty');
+            const empty = document.getElementById('anime-empty');
+            if (empty) {
+                empty.innerHTML = `
+                    <div class="w-16 h-16 rounded-2xl bg-[var(--input-bg)] flex items-center justify-center mx-auto mb-4 border border-[var(--border-color)]">
+                        <i data-lucide="search-x" class="w-8 h-8 text-[var(--text-muted)] opacity-50"></i>
+                    </div>
+                    <p class="text-sm text-[var(--text-muted)] font-medium">Tidak ada hasil untuk "${query}"</p>
+                    <p class="text-xs text-[var(--text-muted)] mt-1">Coba kata kunci lain</p>`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
             }
-            throw new Error(json.error || 'Gagal mengambil data anime');
+            return;
         }
 
-        renderAnimePlayer(json.data);
+        animeSearchResults = data.data;
+        renderAnimeGrid(data.data);
+        showAnimeView('results');
+
     } catch (err) {
-        console.error('[Anime]', err);
-        showToast('Error', err.message, 'error');
+        console.error('[Anime Search]', err);
+        showAnimeView('empty');
+        const empty = document.getElementById('anime-empty');
         if (empty) {
-            empty.classList.remove('hidden');
             empty.innerHTML = `
-                <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center mx-auto mb-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-red-400"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                <div class="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4 border border-red-100">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-red-400"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
                 </div>
-                <p class="text-sm text-[var(--text-muted)]">${err.message}</p>`;
+                <p class="text-sm text-[var(--text-muted)] font-medium">Gagal mencari: ${err.message}</p>
+                <p class="text-xs text-[var(--text-muted)] mt-1">Coba lagi nanti</p>`;
         }
-    } finally {
-        if (loading) loading.classList.add('hidden');
     }
 }
 
-function renderAnimePlayer(data) {
-    const section = document.getElementById('anime-section');
-    const empty = document.getElementById('anime-empty');
-    if (section) section.classList.remove('hidden');
-    if (empty) empty.classList.add('hidden');
+function renderAnimeGrid(animeList) {
+    const grid = document.getElementById('anime-grid');
+    if (!grid) return;
+
+    grid.innerHTML = animeList.map((anime, idx) => {
+        const img = anime.images?.jpg?.image_url || anime.images?.webp?.image_url || '';
+        const title = anime.title || anime.title_english || anime.title_japanese || 'Unknown';
+        const year = anime.year || (anime.aired?.from ? new Date(anime.aired.from).getFullYear() : '');
+        const episodes = anime.episodes ? `${anime.episodes} EP` : '';
+        const score = anime.score ? `⭐ ${anime.score}` : '';
+
+        return `
+            <div class="glass-card group cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1" onclick="showAnimeDetail(${idx})">
+                <div class="relative aspect-[3/4] overflow-hidden bg-[var(--input-bg)]">
+                    <img src="${img}" alt="${title}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy"
+                         onerror="this.src='https://via.placeholder.com/300x400/e2e8f0/94a3b8?text=No+Image'">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-3 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                        <button class="w-full py-2 rounded-lg bg-purple-500 text-white text-xs font-bold shadow-lg shadow-purple-500/30">Lihat Detail</button>
+                    </div>
+                </div>
+                <div class="p-3">
+                    <h4 class="font-bold text-[var(--text-primary)] text-sm line-clamp-2 leading-tight mb-1" title="${title}">${title}</h4>
+                    <div class="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+                        ${year ? `<span>${year}</span>` : ''}
+                        ${episodes ? `<span class="text-emerald-500 font-semibold">${episodes}</span>` : ''}
+                        ${score ? `<span class="text-amber-500 font-semibold">${score}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function showAnimeDetail(index) {
+    const anime = animeSearchResults[index];
+    if (!anime) return;
+
+    showAnimeView('detail');
 
     const titleEl = document.getElementById('an-title');
     const posterEl = document.getElementById('an-poster');
     const ratingEl = document.getElementById('an-rating');
     const yearEl = document.getElementById('an-year');
+    const episodesEl = document.getElementById('an-episodes');
+    const statusEl = document.getElementById('an-status');
     const genresEl = document.getElementById('an-genres');
     const synopsisEl = document.getElementById('an-synopsis');
-    const iframeEl = document.getElementById('an-iframe');
-    const serversEl = document.getElementById('an-servers');
+    const trailerWrap = document.getElementById('an-trailer-wrap');
+    const trailerEl = document.getElementById('an-trailer');
+    const embedWrap = document.getElementById('an-embed-wrap');
 
-    if (titleEl) titleEl.textContent = data.title || 'Unknown Anime';
-    
+    if (titleEl) titleEl.textContent = anime.title || anime.title_english || 'Unknown Anime';
+
     if (posterEl) {
-        if (data.poster) {
-            posterEl.src = data.poster;
+        const img = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '';
+        if (img) {
+            posterEl.src = img;
             posterEl.classList.remove('hidden');
         } else {
             posterEl.classList.add('hidden');
@@ -2207,73 +2293,81 @@ function renderAnimePlayer(data) {
     }
 
     if (ratingEl) {
-        if (data.rating) { ratingEl.textContent = '⭐ ' + data.rating; ratingEl.classList.remove('hidden'); }
-        else { ratingEl.classList.add('hidden'); }
+        if (anime.score) {
+            ratingEl.textContent = `⭐ ${anime.score} / 10`;
+            ratingEl.classList.remove('hidden');
+        } else {
+            ratingEl.classList.add('hidden');
+        }
     }
 
     if (yearEl) {
-        if (data.year) { yearEl.textContent = data.year; yearEl.classList.remove('hidden'); }
-        else { yearEl.classList.add('hidden'); }
+        const y = anime.year || (anime.aired?.from ? new Date(anime.aired.from).getFullYear() : '');
+        if (y) {
+            yearEl.textContent = String(y);
+            yearEl.classList.remove('hidden');
+        } else {
+            yearEl.classList.add('hidden');
+        }
+    }
+
+    if (episodesEl) {
+        if (anime.episodes) {
+            episodesEl.textContent = `${anime.episodes} Episodes`;
+            episodesEl.classList.remove('hidden');
+        } else {
+            episodesEl.classList.add('hidden');
+        }
+    }
+
+    if (statusEl) {
+        if (anime.status) {
+            statusEl.textContent = anime.status;
+            statusEl.classList.remove('hidden');
+        } else {
+            statusEl.classList.add('hidden');
+        }
     }
 
     if (genresEl) {
-        genresEl.innerHTML = (data.genres || []).map(g => 
-            `<span class="px-2.5 py-1 rounded-lg bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200">${g}</span>`
+        const genres = anime.genres || [];
+        genresEl.innerHTML = genres.map(g => 
+            `<span class="px-2.5 py-1 rounded-lg bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200">${g.name}</span>`
         ).join('');
     }
 
-    if (synopsisEl) synopsisEl.textContent = data.synopsis || 'Tidak ada sinopsis.';
+    if (synopsisEl) synopsisEl.textContent = anime.synopsis || 'Tidak ada sinopsis tersedia.';
 
-    if (serversEl && data.servers?.length) {
-        serversEl.innerHTML = data.servers.map((srv, idx) => `
-            <button onclick="switchAnimeServer('${encodeURIComponent(srv.streamUrl)}', this)" 
-                class="server-btn ${idx === 0 ? 'server-btn-active' : ''} px-4 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-2">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
-                ${srv.serverName}
-            </button>
-        `).join('');
-    } else if (serversEl) {
-        serversEl.innerHTML = `<p class="text-xs text-[var(--text-muted)]">Tidak ada server otomatis terdeteksi. Gunakan mode manual.</p>`;
+    // Trailer
+    if (trailerWrap && trailerEl) {
+        const ytId = anime.trailer?.youtube_id;
+        if (ytId) {
+            trailerEl.src = `https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`;
+            trailerWrap.classList.remove('hidden');
+        } else {
+            trailerEl.src = '';
+            trailerWrap.classList.add('hidden');
+        }
     }
 
-    if (iframeEl && data.streamUrl) {
-        iframeEl.src = data.streamUrl;
-    }
-
-    showToast('Sukses', `Anime ditemukan: ${data.title}`, 'success');
-}
-
-window.switchAnimeServer = function(encodedUrl, btn) {
+    // Hide manual embed player on new detail
+    if (embedWrap) embedWrap.classList.add('hidden');
     const iframe = document.getElementById('an-iframe');
-    const url = decodeURIComponent(encodedUrl);
-    if (iframe) iframe.src = url;
-    
-    document.querySelectorAll('#an-servers .server-btn').forEach(b => {
-        b.classList.remove('server-btn-active');
-        b.style.background = '';
-        b.style.color = '';
-        b.style.borderColor = '';
-    });
-    
-    if (btn) {
-        btn.classList.add('server-btn-active');
-        btn.style.background = 'linear-gradient(135deg, #a855f7, #ec4899)';
-        btn.style.color = '#fff';
-        btn.style.borderColor = 'transparent';
-    }
-};
+    if (iframe) iframe.src = '';
+
+    showToast('Sukses', `Ditemukan: ${anime.title || ''}`, 'success');
+}
 
 function loadManualEmbed(url) {
-    const section = document.getElementById('anime-section');
+    const embedWrap = document.getElementById('an-embed-wrap');
     const iframe = document.getElementById('an-iframe');
-    const serversEl = document.getElementById('an-servers');
-    
-    if (section) section.classList.remove('hidden');
+
+    if (embedWrap) embedWrap.classList.remove('hidden');
     if (iframe) iframe.src = url;
-    if (serversEl) serversEl.innerHTML = `<p class="text-xs text-[var(--text-muted)]">Mode manual aktif.</p>`;
-    
-    showToast('Manual', 'Memuat embed manual...', 'info');
+
+    showToast('Manual', 'Memuat embed...', 'info');
 }
+
 
 
 // ===== PERUBAHAN 2: INIT untuk SPA =====
