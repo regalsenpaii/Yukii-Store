@@ -72,15 +72,13 @@ const ANIME_PLAYER_HTML = `<!-- SIDEBAR -->
                             <i data-lucide="tv" class="w-8 h-8 text-white"></i>
                         </div>
                         <h2 class="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] mb-2">Anime Player</h2>
-                        <p class="text-sm text-[var(--text-muted)] mb-8 max-w-md mx-auto">Cari anime pakai judul. Dapatkan info lengkap + trailer langsung dari MyAnimeList.</p>
+                        <p class="text-sm text-[var(--text-muted)] mb-8 max-w-md mx-auto">Paste URL anime dari nontonanimeid.boats. Auto-scrape server & tonton tanpa iklan.</p>
 
-                        <div class="search-box max-w-2xl mx-auto">
-                            <i data-lucide="search" class="search-icon w-5 h-5"></i>
-                            <input type="text" id="anime-query" placeholder="Ketik judul anime, contoh: One Piece, Jujutsu Kaisen..." autocomplete="off">
-                        </div>
-                        <button id="anime-search-btn" class="btn-primary btn-violet mt-4 px-8">
-                            <i data-lucide="search" class="w-4 h-4"></i> Cari Anime
-                        </button>
+                        <form id="anime-form" class="search-box max-w-2xl mx-auto">
+                            <i data-lucide="link" class="search-icon w-5 h-5"></i>
+                            <input type="text" id="anime-url" placeholder="https://s13.nontonanimeid.boats/anime/..." required autocomplete="off">
+                        </form>
+                        <p class="text-[11px] text-[var(--text-muted)] mt-3">Contoh: https://s13.nontonanimeid.boats/anime/one-piece</p>
                     </div>
                 </div>
             </section>
@@ -89,29 +87,12 @@ const ANIME_PLAYER_HTML = `<!-- SIDEBAR -->
             <div id="anime-loading" class="hidden">
                 <div class="glass-card p-10 text-center">
                     <div class="loading-spinner mx-auto mb-4" style="border-top-color: #a855f7;"></div>
-                    <p class="text-sm text-[var(--text-muted)]">Mencari anime di MyAnimeList...</p>
+                    <p class="text-sm text-[var(--text-muted)]">Mengambil data anime...</p>
                 </div>
             </div>
 
-            <!-- ANIME RESULTS GRID -->
-            <div id="anime-results" class="hidden mb-8">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="font-bold text-[var(--text-primary)] text-lg">Hasil Pencarian</h3>
-                    <button id="anime-back-btn" class="text-xs font-semibold text-[var(--text-muted)] hover:text-purple-500 transition-colors flex items-center gap-1">
-                        <i data-lucide="arrow-left" class="w-3 h-3"></i> Kembali
-                    </button>
-                </div>
-                <div id="anime-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
-            </div>
-
-            <!-- ANIME DETAIL & PLAYER -->
+            <!-- ANIME INFO & PLAYER -->
             <section id="anime-section" class="hidden">
-                <div class="flex items-center gap-2 mb-4">
-                    <button id="anime-back-detail" class="text-xs font-semibold text-[var(--text-muted)] hover:text-purple-500 transition-colors flex items-center gap-1">
-                        <i data-lucide="arrow-left" class="w-3 h-3"></i> Kembali ke Hasil
-                    </button>
-                </div>
-
                 <div class="glass-card p-6 mb-6">
                     <div class="flex flex-col md:flex-row gap-6">
                         <img id="an-poster" src="" alt="Poster" class="w-full md:w-48 rounded-xl object-cover shadow-lg bg-[var(--input-bg)] hidden" style="aspect-ratio:2/3;">
@@ -120,8 +101,6 @@ const ANIME_PLAYER_HTML = `<!-- SIDEBAR -->
                             <div class="flex flex-wrap items-center gap-3 mb-4">
                                 <span id="an-rating" class="hidden px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 text-xs font-bold border border-amber-100"></span>
                                 <span id="an-year" class="hidden px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"></span>
-                                <span id="an-episodes" class="hidden px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100"></span>
-                                <span id="an-status" class="hidden px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 text-xs font-bold border border-purple-100"></span>
                                 <div id="an-genres" class="flex flex-wrap gap-2"></div>
                             </div>
                             <p id="an-synopsis" class="text-sm text-[var(--text-secondary)] leading-relaxed">-</p>
@@ -129,20 +108,8 @@ const ANIME_PLAYER_HTML = `<!-- SIDEBAR -->
                     </div>
                 </div>
 
-                <!-- Trailer Player -->
-                <div id="an-trailer-wrap" class="glass-card p-1 mb-4 overflow-hidden bg-black/95 border-black/50 shadow-2xl hidden">
-                    <div class="relative aspect-video bg-black rounded-xl overflow-hidden">
-                        <iframe id="an-trailer" class="w-full h-full absolute inset-0" 
-                            allowfullscreen 
-                            allow="fullscreen; autoplay; encrypted-media; picture-in-picture" 
-                            src="" 
-                            style="border:0;">
-                        </iframe>
-                    </div>
-                </div>
-
-                <!-- Manual Embed Player -->
-                <div class="glass-card p-1 mb-4 overflow-hidden bg-black/95 border-black/50 shadow-2xl hidden" id="an-embed-wrap">
+                <!-- Player -->
+                <div class="glass-card p-1 mb-4 overflow-hidden bg-black/95 border-black/50 shadow-2xl">
                     <div class="relative aspect-video bg-black rounded-xl overflow-hidden">
                         <iframe id="an-iframe" class="w-full h-full absolute inset-0" 
                             sandbox="allow-scripts allow-same-origin allow-presentation" 
@@ -154,13 +121,24 @@ const ANIME_PLAYER_HTML = `<!-- SIDEBAR -->
                     </div>
                 </div>
 
-                <!-- Manual Embed Input -->
-                <div class="glass-card p-5 mb-6 border-amber-200" style="border-color: rgba(245,158,11,0.3); background: linear-gradient(135deg, rgba(245,158,11,0.05), rgba(251,191,36,0.02));">
+                <!-- Server Switcher -->
+                <div class="glass-card p-5 mb-6">
                     <div class="flex items-center gap-2 mb-3">
-                        <i data-lucide="link" class="w-5 h-5 text-amber-500"></i>
-                        <h3 class="font-bold text-[var(--text-primary)]">Manual Embed</h3>
+                        <i data-lucide="server" class="w-4 h-4 text-[var(--text-muted)]"></i>
+                        <p class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Pilih Server</p>
                     </div>
-                    <p class="text-sm text-[var(--text-secondary)] mb-4">Paste URL iframe/embed video streaming langsung di bawah.</p>
+                    <div id="an-servers" class="flex flex-wrap gap-2"></div>
+                </div>
+            </section>
+
+            <!-- MANUAL FALLBACK (Kalau Cloudflare) -->
+            <section id="anime-manual" class="hidden mb-10">
+                <div class="glass-card p-6 border-amber-200" style="border-color: rgba(245,158,11,0.3); background: linear-gradient(135deg, rgba(245,158,11,0.05), rgba(251,191,36,0.02));">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="alert-circle" class="w-5 h-5 text-amber-500"></i>
+                        <h3 class="font-bold text-[var(--text-primary)]">Mode Manual Embed</h3>
+                    </div>
+                    <p class="text-sm text-[var(--text-secondary)] mb-4">Scraping otomatis terhalang Cloudflare. Kamu bisa paste URL iframe/embed video langsung di bawah.</p>
                     <form id="manual-embed-form" class="flex gap-3">
                         <input type="text" id="manual-embed-url" placeholder="Paste URL embed iframe di sini..." class="form-input flex-1">
                         <button type="submit" class="btn-primary btn-amber px-5">Tonton</button>
@@ -173,8 +151,8 @@ const ANIME_PLAYER_HTML = `<!-- SIDEBAR -->
                 <div class="w-16 h-16 rounded-2xl bg-[var(--input-bg)] flex items-center justify-center mx-auto mb-4 border border-[var(--border-color)]">
                     <i data-lucide="tv" class="w-8 h-8 text-[var(--text-muted)] opacity-50"></i>
                 </div>
-                <p class="text-sm text-[var(--text-muted)] font-medium">Masukkan judul anime untuk mulai mencari</p>
-                <p class="text-xs text-[var(--text-muted)] mt-1">Data dari MyAnimeList (Jikan API)</p>
+                <p class="text-sm text-[var(--text-muted)] font-medium">Masukkan URL anime untuk mulai menonton</p>
+                <p class="text-xs text-[var(--text-muted)] mt-1">Gunakan link dari nontonanimeid.boats</p>
             </div>
 
             <!-- FOOTER -->
@@ -186,7 +164,7 @@ const ANIME_PLAYER_HTML = `<!-- SIDEBAR -->
                     <span class="font-bold text-[var(--text-primary)] text-sm">YUKI STORE</span>
                 </div>
                 <p class="text-xs text-[var(--text-muted)]">Powered by Regal &copy; 2026</p>
-                <p class="text-[10px] text-[var(--text-muted)] mt-1">Anime Player &mdash; Jikan API + Manual Embed</p>
+                <p class="text-[10px] text-[var(--text-muted)] mt-1">Anime Player &mdash; Ad-Free Sandbox</p>
             </footer>
 
         </div>
