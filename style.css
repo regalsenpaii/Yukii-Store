@@ -1445,3 +1445,29 @@ html:not(.dark):not([data-theme="dark"]) .theme-toggle-btn svg.moon-icon {
 @media (max-width: 640px) {
     #main-content { padding-bottom: 100px; }
 }
+
+/* Server button - support Movie & Anime */
+.server-btn {
+    background: var(--input-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+}
+.server-btn:hover {
+    background: var(--hover-bg);
+    transform: translateY(-1px);
+}
+.server-btn-active {
+    color: #fff !important;
+    border-color: transparent !important;
+}
+/* Movie active = orange */
+#movie-section .server-btn-active {
+    background: linear-gradient(135deg, #f97316, #ea580c) !important;
+    box-shadow: 0 4px 12px rgba(249,115,22,0.3);
+}
+/* Anime active = purple/pink */
+#anime-section .server-btn-active {
+    background: linear-gradient(135deg, #a855f7, #ec4899) !important;
+    box-shadow: 0 4px 12px rgba(168,85,247,0.3);
+}
