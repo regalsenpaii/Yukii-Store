@@ -3,13 +3,9 @@ const INDEX_HTML = `
         <!-- SIDEBAR BRAND (YUKI STORE) -->
         <div class="sidebar-brand">
             <div id="sidebar-brand-click" class="flex items-center gap-3 cursor-pointer select-none group relative p-1.5 rounded-xl transition-all duration-300 hover:bg-[var(--hover-bg)]" title="Klik untuk efek ombak!">
-        
-                <!-- Icon Bintang -->
                 <div class="brand-icon transition-transform duration-300 group-hover:scale-110">
                     <i data-lucide="sparkles" class="w-5 h-5 text-white relative z-10"></i>
                 </div>
-        
-                <!-- Teks Brand Interaktif -->
                 <div class="relative overflow-hidden py-1">
                     <h1 id="yuki-brand-text" class="font-bold text-[var(--text-primary)] text-sm tracking-wide transition-colors duration-300">YUKI STORE</h1>
                     <p class="text-[10px] text-[var(--text-muted)] font-semibold tracking-widest">DASHBOARD v1.0</p>
@@ -23,40 +19,53 @@ const INDEX_HTML = `
                 <i data-lucide="layout-dashboard" class="nav-icon"></i><span>Dashboard</span>
             </a>
     
-            <!-- Halaman lain pake query parameter -->
+            <!-- Panel Pterodactyl -->
             <a href="?page=pterodactyl" class="nav-item">
                 <i data-lucide="server" class="nav-icon"></i><span>Panel Pterodactyl</span>
             </a>
+            
+            <!-- Sewa Bot -->
             <a href="?page=sewa-bot" class="nav-item">
                 <i data-lucide="bot" class="nav-icon"></i><span>Sewa Bot & Prem</span>
             </a>
+            
+            <!-- Script Yuki -->
             <a href="?page=script-yuki" class="nav-item">
                 <i data-lucide="code" class="nav-icon"></i><span>Script Yuki AI</span>
             </a>
+            
+            <!-- Spotify -->
             <a href="?page=spotify" class="nav-item">
                 <i data-lucide="music" class="nav-icon"></i><span>Spotify Finder</span>
             </a>
+            
+            <!-- Music Player -->
             <a href="?page=music-player" class="nav-item">
                 <i data-lucide="headphones" class="nav-icon"></i><span>Music Player</span>
             </a>
+            
+            <!-- Pinterest -->
             <a href="?page=pinterest" class="nav-item">
                 <i data-lucide="image" class="nav-icon"></i><span>Pinterest Search</span>
+            </a>
+            
+            <!-- ANIME PLAYER (TAMBAHAN) -->
+            <a href="?page=anime-player" class="nav-item">
+                <i data-lucide="tv" class="nav-icon"></i><span>Anime Player</span>
             </a>
         </nav>
 
         <div class="sidebar-footer space-y-4">
-        <!-- THEME TOGGLE (MODE TAMPILAN) -->
-        <div class="flex items-center justify-between p-3 rounded-xl bg-[var(--card-bg)] border border-[var(--border-color)]">
-            <span class="text-xs font-semibold text-[var(--text-primary)]">Mode Tampilan</span>
-    
-            <!-- Tombol Switch Animasi Telegram -->
-            <button id="theme-toggle" type="button" aria-label="Toggle Theme" class="theme-toggle-btn">
-                <i data-lucide="sun" class="sun-icon text-amber-500"></i>
-                <i data-lucide="moon" class="moon-icon text-blue-400"></i>
-            </button>
-        </div>
+            <!-- THEME TOGGLE -->
+            <div class="flex items-center justify-between p-3 rounded-xl bg-[var(--card-bg)] border border-[var(--border-color)]">
+                <span class="text-xs font-semibold text-[var(--text-primary)]">Mode Tampilan</span>
+                <button id="theme-toggle" type="button" aria-label="Toggle Theme" class="theme-toggle-btn">
+                    <i data-lucide="sun" class="sun-icon text-amber-500"></i>
+                    <i data-lucide="moon" class="moon-icon text-blue-400"></i>
+                </button>
+            </div>
 
-            <!-- 2. UPTIME CARD (Otomatis terpisah jarak space-y-4) -->
+            <!-- UPTIME CARD -->
             <div class="uptime-card">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="status-pulse"></span>
@@ -71,21 +80,14 @@ const INDEX_HTML = `
     <div id="mobile-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden lg:hidden"></div>
 
     <div class="mobile-header">
-        <!-- Tambahkan ID mobile-brand-click, class cursor-pointer, dan hover -->
         <div id="mobile-brand-click" class="flex items-center gap-2 cursor-pointer select-none py-1 px-1.5 rounded-xl transition-all duration-300 hover:bg-[var(--hover-bg)]" title="Klik YUKI STORE!">
-        
-            <!-- Tambahkan class brand-icon agar ikonnya ikut animasi membal -->
             <div class="brand-icon w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-400 flex items-center justify-center transition-transform duration-300">
                 <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
             </div>
-        
-            <!-- Pembungkus overflow-hidden & ID yuki-mobile-text agar teks tersapu ombak dengan rapi -->
             <div class="relative overflow-hidden py-1">
                 <span id="yuki-mobile-text" class="font-bold text-[var(--text-primary)] text-sm block">YUKI STORE</span>
             </div>
         </div>
-
-        <!-- Tombol Menu dengan 3 Baris Animasi -->
         <button id="menu-toggle" class="p-2.5 rounded-xl hover:bg-[var(--hover-bg)] transition-all duration-300 relative group flex flex-col justify-center items-center gap-1 w-10 h-10 overflow-hidden">
             <span class="w-5 h-0.5 bg-[var(--text-primary)] rounded-full transition-all duration-300 transform origin-center bar-1"></span>
             <span class="w-5 h-0.5 bg-[var(--text-primary)] rounded-full transition-all duration-300 bar-2"></span>
@@ -95,7 +97,6 @@ const INDEX_HTML = `
 
     <main id="main-content">
         <div class="page-container">
-
             <!-- HERO -->
             <section class="mb-10">
                 <div class="flex justify-center mb-5">
@@ -128,6 +129,7 @@ const INDEX_HTML = `
                     </div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <!-- Panel Pterodactyl -->
                     <a href="?page=pterodactyl" class="glass-card group p-6 text-left no-underline">
                         <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center mb-4 shadow-lg shadow-blue-100">
                             <i data-lucide="server" class="w-6 h-6 text-white"></i>
@@ -136,6 +138,8 @@ const INDEX_HTML = `
                         <p class="text-sm text-[var(--text-muted)] mb-4">14 pilihan kapasitas panel mulai dari 1GB</p>
                         <span class="text-xs font-semibold text-blue-600 flex items-center gap-1">Lihat Produk <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
                     </a>
+
+                    <!-- Sewa Bot -->
                     <a href="?page=sewa-bot" class="glass-card glass-card-green group p-6 text-left no-underline">
                         <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center mb-4 shadow-lg shadow-emerald-100">
                             <i data-lucide="bot" class="w-6 h-6 text-white"></i>
@@ -144,6 +148,8 @@ const INDEX_HTML = `
                         <p class="text-sm text-[var(--text-muted)] mb-4">Bot Yuki AI dan akses premium eksklusif</p>
                         <span class="text-xs font-semibold text-emerald-600 flex items-center gap-1">Lihat Produk <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
                     </a>
+
+                    <!-- Script Yuki -->
                     <a href="?page=script-yuki" class="glass-card group p-6 text-left no-underline">
                         <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center mb-4 shadow-lg shadow-violet-100">
                             <i data-lucide="code-2" class="w-6 h-6 text-white"></i>
@@ -152,6 +158,8 @@ const INDEX_HTML = `
                         <p class="text-sm text-[var(--text-muted)] mb-4">v14.0.0 Stable dengan 1000+ fitur</p>
                         <span class="text-xs font-semibold text-violet-600 flex items-center gap-1">Lihat Produk <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
                     </a>
+
+                    <!-- Spotify Finder -->
                     <a href="?page=spotify" class="glass-card glass-card-green group p-6 text-left no-underline">
                         <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center mb-4 shadow-lg shadow-emerald-100">
                             <i data-lucide="music" class="w-6 h-6 text-white"></i>
@@ -160,6 +168,8 @@ const INDEX_HTML = `
                         <p class="text-sm text-[var(--text-muted)] mb-4">Cari dan dengarkan lagu favorit Anda</p>
                         <span class="text-xs font-semibold text-emerald-600 flex items-center gap-1">Buka <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
                     </a>
+
+                    <!-- Music Player -->
                     <a href="?page=music-player" class="glass-card group p-6 text-left no-underline">
                         <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center mb-4 shadow-lg shadow-pink-100">
                             <i data-lucide="headphones" class="w-6 h-6 text-white"></i>
@@ -168,6 +178,8 @@ const INDEX_HTML = `
                         <p class="text-sm text-[var(--text-muted)] mb-4">Putar lagu dengan visualizer beat real-time</p>
                         <span class="text-xs font-semibold text-pink-600 flex items-center gap-1">Buka <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
                     </a>
+
+                    <!-- Pinterest Search -->
                     <a href="?page=pinterest" class="glass-card group p-6 text-left no-underline">
                         <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-400 to-rose-600 flex items-center justify-center mb-4 shadow-lg shadow-pink-100">
                             <i data-lucide="image" class="w-6 h-6 text-white"></i>
@@ -176,19 +188,40 @@ const INDEX_HTML = `
                         <p class="text-sm text-[var(--text-muted)] mb-4">Cari gambar inspirasi dari Pinterest</p>
                         <span class="text-xs font-semibold text-pink-600 flex items-center gap-1">Buka <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
                     </a>
+
+                    <!-- Anime Player -->
+                    <a href="?page=anime-player" class="glass-card group p-6 text-left no-underline">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-4 shadow-lg shadow-purple-100">
+                            <i data-lucide="tv" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <h3 class="font-bold text-[var(--text-primary)] mb-1">Anime Player</h3>
+                        <p class="text-sm text-[var(--text-muted)] mb-4">Nonton anime tanpa iklan & popup</p>
+                        <span class="text-xs font-semibold text-purple-600 flex items-center gap-1">Buka <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
+                    </a>
                 </div>
             </section>
 
             <!-- STATS -->
             <section class="mb-10">
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="glass-card p-5 text-center"><p class="text-2xl font-bold text-blue-600">14+</p><p class="text-xs text-[var(--text-muted)] mt-1">Produk Panel</p></div>
-                    <div class="glass-card p-5 text-center"><p class="text-2xl font-bold text-emerald-600">1000+</p><p class="text-xs text-[var(--text-muted)] mt-1">Fitur Script</p></div>
-                    <div class="glass-card p-5 text-center"><p class="text-2xl font-bold text-violet-600">99.9%</p><p class="text-xs text-[var(--text-muted)] mt-1">Server Uptime</p></div>
-                    <div class="glass-card p-5 text-center"><p class="text-2xl font-bold text-orange-600">24/7</p><p class="text-xs text-[var(--text-muted)] mt-1">Support</p></div>
+                    <div class="glass-card p-5 text-center">
+                        <p class="text-2xl font-bold text-blue-600">14+</p>
+                        <p class="text-xs text-[var(--text-muted)] mt-1">Produk Panel</p>
+                    </div>
+                    <div class="glass-card p-5 text-center">
+                        <p class="text-2xl font-bold text-emerald-600">1000+</p>
+                        <p class="text-xs text-[var(--text-muted)] mt-1">Fitur Script</p>
+                    </div>
+                    <div class="glass-card p-5 text-center">
+                        <p class="text-2xl font-bold text-violet-600">99.9%</p>
+                        <p class="text-xs text-[var(--text-muted)] mt-1">Server Uptime</p>
+                    </div>
+                    <div class="glass-card p-5 text-center">
+                        <p class="text-2xl font-bold text-orange-600">24/7</p>
+                        <p class="text-xs text-[var(--text-muted)] mt-1">Support</p>
+                    </div>
                 </div>
             </section>
-
 
             <!-- FOOTER -->
             <footer class="text-center py-8 border-t border-[var(--border-color)]">
@@ -201,7 +234,6 @@ const INDEX_HTML = `
                 <p class="text-xs text-[var(--text-muted)]">Powered by Regal &copy; 2026</p>
                 <p class="text-[10px] text-[var(--text-muted)] mt-1">Dashboard v1.0 - All rights reserved</p>
             </footer>
-
         </div>
     </main>
 
@@ -236,17 +268,29 @@ const INDEX_HTML = `
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div class="bg-blue-50 rounded-xl p-3 border border-blue-100">
-                        <div class="flex items-center gap-1.5 mb-1"><i data-lucide="wallet" class="w-3.5 h-3.5 text-blue-500"></i><span class="text-xs font-semibold text-blue-700">GOPAY</span></div>
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <i data-lucide="wallet" class="w-3.5 h-3.5 text-blue-500"></i>
+                            <span class="text-xs font-semibold text-blue-700">GOPAY</span>
+                        </div>
                         <p class="text-sm font-mono text-blue-800">085166370226</p>
                     </div>
                     <div class="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
-                        <div class="flex items-center gap-1.5 mb-1"><i data-lucide="wallet" class="w-3.5 h-3.5 text-emerald-500"></i><span class="text-xs font-semibold text-emerald-700">DANA</span></div>
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <i data-lucide="wallet" class="w-3.5 h-3.5 text-emerald-500"></i>
+                            <span class="text-xs font-semibold text-emerald-700">DANA</span>
+                        </div>
                         <p class="text-sm font-mono text-emerald-800">088705666357</p>
                     </div>
                 </div>
                 <form id="invoice-form" class="space-y-4">
-                    <div><label class="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Nama Pembeli</label><input type="text" id="buyer-name" placeholder="Masukkan nama Anda" class="form-input" required></div>
-                    <div><label class="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Nomor WhatsApp</label><input type="tel" id="buyer-wa" placeholder="Contoh: 6281234567890" class="form-input" required></div>
+                    <div>
+                        <label class="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Nama Pembeli</label>
+                        <input type="text" id="buyer-name" placeholder="Masukkan nama Anda" class="form-input" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Nomor WhatsApp</label>
+                        <input type="tel" id="buyer-wa" placeholder="Contoh: 6281234567890" class="form-input" required>
+                    </div>
                     <div>
                         <label class="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Upload Bukti Transfer</label>
                         <input type="file" id="buyer-proof" accept="image/*" class="hidden" onchange="handleFileSelect(this)">
@@ -256,7 +300,9 @@ const INDEX_HTML = `
                         </label>
                         <img id="file-preview" class="hidden mt-2 w-full h-32 object-cover rounded-xl border border-[var(--border-color)]" alt="Preview">
                     </div>
-                    <button type="submit" class="btn-primary w-full"><i data-lucide="send" class="w-4 h-4"></i>Kirim Bukti Pembayaran</button>
+                    <button type="submit" class="btn-primary w-full">
+                        <i data-lucide="send" class="w-4 h-4"></i>Kirim Bukti Pembayaran
+                    </button>
                 </form>
             </div>
         </div>
@@ -271,9 +317,18 @@ const INDEX_HTML = `
                 <p id="player-artist" class="text-xs text-[var(--text-muted)] truncate">-</p>
             </div>
             <div class="hidden sm:flex items-end gap-[3px] h-8">
-                <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
-                <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
-                <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
             </div>
             <div class="flex items-center gap-2">
                 <button id="player-play" class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-100">
