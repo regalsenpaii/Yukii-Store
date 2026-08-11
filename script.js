@@ -2066,6 +2066,111 @@ function initKeyboard() {
     });
 }
 
+// =========================================================================
+// SEWA BOT - INTEGRASI PEMBAYARAN AUSTIN STORE
+// =========================================================================
+
+let sewaCheckInterval = null;
+let sewaCountdownInterval = null;
+
+function initSewaBot() {
+  const form = document.getElementById('sewa-form');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nama = document.getElementById('sewa-nama').value.trim();
+    const nomor = document.getElementById('sewa-nomor').value.trim();
+    const link = document.getElementById('sewa-link').value.trim();
+    const durasi = document.querySelector('input[name="sewa-durasi"]:checked')?.value;
+
+    if (!nama || !nomor || !link || !durasi) {
+      showToast('Error', 'Semua field wajib diisi!', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('sewa-submit');
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-2 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2 a10 10 0 0 1 10 10" fill="none"/></svg> Memproses...';
+
+    try {
+      const res = await fetch('/api/sewa-bot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nama, nomor, groupLink: link, duration: durasi })
+      });
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Gagal membuat deposit');
+
+      document.getElementById('sewa-qris-area').classList.remove('hidden');
+      document.getElementById('sewa-success-area').classList.add('hidden');
+      
+      const qrisImg = document.getElementById('sewa-qris-img');
+      if (data.qrImage) { qrisImg.src = data.qrImage; qrisImg.style.display = ''; }
+      else { qrisImg.style.display = 'none'; }
+
+      document.getElementById('sewa-total').textContent = 'Rp ' + (data.totalAmount || 0).toLocaleString('id-ID');
+      document.getElementById('sewa-deposit-id').textContent = data.depositId;
+
+      showToast('Sukses', 'QRIS berhasil dibuat! Silakan scan untuk membayar.', 'success');
+      startSewaCountdown(5 * 60);
+      startSewaPolling(data.depositId || data.id);
+
+    } catch (err) {
+      showToast('Error', err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+  });
+}
+
+function startSewaCountdown(seconds) {
+  if (sewaCountdownInterval) clearInterval(sewaCountdownInterval);
+  const el = document.getElementById('sewa-countdown');
+  let remaining = seconds;
+  sewaCountdownInterval = setInterval(() => {
+    remaining--;
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    if (el) el.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    if (remaining <= 0) {
+      clearInterval(sewaCountdownInterval);
+      clearInterval(sewaCheckInterval);
+      if (el) el.textContent = '00:00';
+    }
+  }, 1000);
+}
+
+function startSewaPolling(depositId) {
+  if (sewaCheckInterval) clearInterval(sewaCheckInterval);
+  let attempts = 0;
+  sewaCheckInterval = setInterval(async () => {
+    attempts++;
+    if (attempts > 30) { clearInterval(sewaCheckInterval); return; }
+    try {
+      const res = await fetch(`/api/sewa-bot?action=check&id=${depositId}`);
+      const data = await res.json();
+      if (data.success && data.status === 'paid') {
+        clearInterval(sewaCheckInterval);
+        clearInterval(sewaCountdownInterval);
+        document.getElementById('sewa-qris-area').classList.add('hidden');
+        document.getElementById('sewa-success-area').classList.remove('hidden');
+        showToast('Sukses', 'Pembayaran berhasil! Bot akan segera join grup.', 'success');
+        document.getElementById('sewa-success-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    } catch (e) { console.error('[Sewa Poll]', e); }
+  }, 10000);
+}
+
+// Init saat page sewa-bot dimuat
+document.addEventListener('page-loaded', function(e) {
+  if (e.detail.page === 'sewa-bot') initSewaBot();
+});
+
 // --- 16. LOADER ---
 function initLoader() {
     const loader = document.getElementById("proseka-loader");
