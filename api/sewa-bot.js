@@ -6,46 +6,33 @@ const AUSTIN_WEBHOOK_SECRET = process.env.AUSTIN_WEBHOOK_SECRET;
 const AUSTIN_BASE = 'https://austinstore.id';
 const BOT_POLL_KEY = process.env.BOT_POLL_KEY;
 
-// In-memory DB (⚠️ hilang saat cold start. Untuk production pakai Vercel KV)
 let memoryDB = { orders: [], logs: [] };
-
 function readDB() { return memoryDB; }
 function writeDB(db) { memoryDB = db; }
+function verifyBotKey(req) { return req.query.botKey === BOT_POLL_KEY; }
 
-function verifyBotKey(req) {
-  return req.query.botKey === BOT_POLL_KEY;
-}
-
-// HMAC untuk request KE Austin Store
 function signAustinRequest(method, path, bodyObj) {
   const timestamp = Date.now().toString();
-  const bodyStr = (bodyObj && Object.keys(bodyObj).length > 0) 
-    ? JSON.stringify(bodyObj) 
-    : '""';
+  const bodyStr = (bodyObj && Object.keys(bodyObj).length > 0) ? JSON.stringify(bodyObj) : '""';
   const payload = `${method.toUpperCase()}\n${path}\n${bodyStr}\n${timestamp}`;
   const signature = crypto.createHmac('sha256', AUSTIN_API_SECRET).update(payload).digest('hex');
   return { timestamp, signature };
 }
 
-// Verifikasi signature dari webhook Austin Store
 function verifyWebhookSignature(rawBody, signature) {
   if (!AUSTIN_WEBHOOK_SECRET) return true;
   const expected = crypto.createHmac('sha256', AUSTIN_WEBHOOK_SECRET).update(rawBody).digest('hex');
-  try {
-    return crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'));
-  } catch { return false; }
+  try { return crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex')); }
+  catch { return false; }
 }
 
-// Baca raw body (penting untuk webhook HMAC)
 async function getRawBody(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   return Buffer.concat(chunks);
 }
 
-export const config = {
-  api: { bodyParser: false } // Wajib agar raw body tersedia untuk HMAC webhook
-};
+export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -55,33 +42,22 @@ export default async function handler(req, res) {
 
   const db = readDB();
 
-  // ═══════════════════════════════════════
-  // 1. BOT POLLING (GET ?action=poll)
-  // ═══════════════════════════════════════
+  // ─── BOT POLLING ───
   if (req.method === 'GET' && req.query.action === 'poll') {
     if (!verifyBotKey(req)) return res.status(403).json({ success: false, message: 'Forbidden' });
     const pending = db.orders.filter(o => o.status === 'paid' && !o.processedByBot);
     return res.status(200).json({ success: true, count: pending.length, orders: pending });
   }
 
-  // ═══════════════════════════════════════
-  // 2. BOT CONFIRM (GET ?action=confirm)
-  // ═══════════════════════════════════════
+  // ─── BOT CONFIRM ───
   if (req.method === 'GET' && req.query.action === 'confirm') {
     if (!verifyBotKey(req)) return res.status(403).json({ success: false, message: 'Forbidden' });
     const order = db.orders.find(o => o.id === req.query.id);
-    if (order) {
-      order.processedByBot = true;
-      order.processedAt = Date.now();
-      writeDB(db);
-    }
+    if (order) { order.processedByBot = true; order.processedAt = Date.now(); writeDB(db); }
     return res.status(200).json({ success: true });
   }
 
-  // ═══════════════════════════════════════
-  // 3. CHECK STATUS (GET ?action=check)
-  //    Frontend polling → proxy ke Austin Store
-  // ═══════════════════════════════════════
+  // ─── CHECK STATUS (proxy ke Austin + update local) ───
   if (req.method === 'GET' && req.query.action === 'check') {
     const depositId = req.query.id;
     if (!depositId) return res.status(400).json({ success: false, message: 'ID diperlukan' });
@@ -89,43 +65,37 @@ export default async function handler(req, res) {
     try {
       const path = `/api/v1/deposit/check/${depositId}`;
       const { timestamp, signature } = signAustinRequest('GET', path, null);
-
       const response = await fetch(`${AUSTIN_BASE}${path}`, {
         method: 'GET',
-        headers: {
-          'X-API-Key': AUSTIN_API_KEY,
-          'X-Timestamp': timestamp,
-          'X-Signature': signature,
-        }
+        headers: { 'X-API-Key': AUSTIN_API_KEY, 'X-Timestamp': timestamp, 'X-Signature': signature }
       });
-
       const data = await response.json();
-      
-      // Update local DB kalau status paid
+      console.log('[Austin Check]', JSON.stringify(data));
+
       const localOrder = db.orders.find(o => o.depositId === depositId || o.id === depositId);
-      if (localOrder && data.success && data.data?.status === 'paid') {
+      if (localOrder && data.success && (data.data?.status === 'paid' || data.data?.status === 'success')) {
         localOrder.status = 'paid';
         localOrder.paidAt = Date.now();
         writeDB(db);
       }
-
-      return res.status(200).json({ success: true, status: data.data?.status || 'unknown', austin: data, order: localOrder || null });
-
+      return res.status(200).json({
+        success: true,
+        status: localOrder?.status || data.data?.status || 'unknown',
+        austinStatus: data.data?.status,
+        order: localOrder || null
+      });
     } catch (error) {
-      console.error('[Check Status Error]', error);
+      console.error('[Check Error]', error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }
 
-  // ═══════════════════════════════════════
-  // 4. CREATE DEPOSIT (POST)
-  // ═══════════════════════════════════════
+  // ─── CREATE DEPOSIT ───
   if (req.method === 'POST' && !req.query.webhook) {
     const { nama, nomor, groupLink, duration } = req.body;
     if (!nama || !nomor || !groupLink || !duration) {
       return res.status(400).json({ success: false, message: 'Data tidak lengkap' });
     }
-
     const match = groupLink.match(/chat\.whatsapp\.com\/([0-9A-Za-z]{10,})/);
     if (!match) return res.status(400).json({ success: false, message: 'Link grup WA tidak valid' });
 
@@ -144,7 +114,6 @@ export default async function handler(req, res) {
         customer_email: `${cleanNomor}@yuki.store`,
         customer_phone: cleanNomor
       };
-
       const { timestamp, signature } = signAustinRequest('POST', path, bodyObj);
 
       const response = await fetch(`${AUSTIN_BASE}${path}`, {
@@ -159,13 +128,23 @@ export default async function handler(req, res) {
       });
 
       const data = await response.json();
-      console.log('[Austin Create]', JSON.stringify(data, null, 2));
+      console.log('[Austin Create] Raw:', JSON.stringify(data, null, 2));
 
       if (!data.success) {
-        throw new Error(data.message || 'Gagal membuat deposit');
+        return res.status(400).json({ success: false, message: data.message || 'Gagal membuat deposit' });
       }
 
       const tx = data.data || {};
+      // Coba ambil QR dari berbagai kemungkinan field
+      let qrImage = '';
+      const possibleQrFields = ['qrImage', 'qr_url', 'qr_string', 'qr_code', 'qrUrl', 'qr_data', 'qrData', 'payment_url', 'checkout_url'];
+      for (const f of possibleQrFields) {
+        if (tx[f] && typeof tx[f] === 'string') { qrImage = tx[f]; break; }
+      }
+      // Kalau masih kosong, cek nested
+      if (!qrImage && tx.payment?.qrImage) qrImage = tx.payment.qrImage;
+      if (!qrImage && tx.qr?.image) qrImage = tx.qr.image;
+
       const order = {
         id: orderId,
         nama,
@@ -176,7 +155,7 @@ export default async function handler(req, res) {
         amount,
         status: 'pending',
         depositId: tx.id || tx.transactionId || tx.reference || orderId,
-        qrImage: tx.qrImage || tx.qr_url || tx.qr_string || '',
+        qrImage: qrImage,
         totalAmount: tx.totalAmount || tx.amount || amount,
         uniqueCode: tx.uniqueCode || 0,
         createdAt: Date.now(),
@@ -194,50 +173,36 @@ export default async function handler(req, res) {
         qrImage: order.qrImage,
         totalAmount: order.totalAmount,
         uniqueCode: order.uniqueCode,
-        expiredAt: order.expiredAt
+        expiredAt: order.expiredAt,
+        raw: tx // buat debug, bisa dihapus nanti
       });
 
     } catch (error) {
-      console.error('[Austin Create Error]', error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || 'Gagal membuat deposit'
-      });
+      console.error('[Create Error]', error);
+      return res.status(500).json({ success: false, message: error.message || 'Server error' });
     }
   }
 
-  // ═══════════════════════════════════════
-  // 5. WEBHOOK AUSTIN STORE (POST ?webhook=austin)
-  // ═══════════════════════════════════════
+  // ─── WEBHOOK AUSTIN ───
   if (req.method === 'POST' && req.query.webhook === 'austin') {
     const rawBody = await getRawBody(req);
     const signature = req.headers['x-austinpay-signature'];
     const event = req.headers['x-austinpay-event'];
-
-    console.log('[Webhook] Event:', event);
     db.logs.push({ t: Date.now(), event, body: rawBody.toString() });
 
     if (!verifyWebhookSignature(rawBody, signature)) {
-      console.error('[Webhook] Invalid signature!');
       return res.status(401).json({ success: false, message: 'Invalid signature' });
     }
-
     const payload = JSON.parse(rawBody);
-
     if (event === 'deposit.paid' && payload.data) {
       const ref = payload.data.transactionId || payload.data.merchant_ref || payload.data.reference;
       const order = db.orders.find(o => o.depositId === ref || o.id === ref);
-      
       if (order && order.status !== 'paid') {
-        order.status = 'paid';
-        order.paidAt = Date.now();
-        order.paymentData = payload.data;
-        console.log(`[Webhook] ✅ Order ${order.id} marked as PAID`);
+        order.status = 'paid'; order.paidAt = Date.now(); order.paymentData = payload.data;
         writeDB(db);
       }
     }
-
-    return res.status(200).json({ success: true, received: true });
+    return res.status(200).json({ success: true });
   }
 
   return res.status(405).json({ success: false, message: 'Method not allowed' });
