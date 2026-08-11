@@ -7,6 +7,12 @@ const AUSTIN_WEBHOOK_SECRET = process.env.AUSTIN_WEBHOOK_SECRET;
 const AUSTIN_BASE = 'https://austinstore.id';
 const BOT_POLL_KEY = process.env.BOT_POLL_KEY;
 
+export default async function handler(req, res) {
+  console.log(`[API HIT] ${req.method} ${req.url} - action=${req.query.action || 'none'}`);
+  
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  // ... lanjutkan kode yang sudah ada
+
 // Undici IPv4 agent (penting untuk Austin Pay)
 const ipv4Agent = new Agent({ connect: { family: 4 } });
 
