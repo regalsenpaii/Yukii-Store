@@ -2072,6 +2072,7 @@ function initKeyboard() {
 
 let sewaCheckInterval = null;
 let sewaCountdownInterval = null;
+let currentSewaDepositId = null;
 
 function initSewaBot() {
   const form = document.getElementById('sewa-form');
@@ -2094,6 +2095,13 @@ function initSewaBot() {
     btn.disabled = true;
     btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-2 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2 a10 10 0 0 1 10 10" fill="none"/></svg> Memproses...';
 
+    // Reset UI
+    document.getElementById('sewa-qris-area').classList.add('hidden');
+    document.getElementById('sewa-success-area').classList.add('hidden');
+    document.getElementById('sewa-checking-area').classList.add('hidden');
+    clearInterval(sewaCheckInterval);
+    clearInterval(sewaCountdownInterval);
+
     try {
       const res = await fetch('/api/sewa-bot', {
         method: 'POST',
@@ -2102,24 +2110,41 @@ function initSewaBot() {
       });
 
       const data = await res.json();
+      console.log('[Sewa Create]', data);
+
       if (!data.success) throw new Error(data.message || 'Gagal membuat deposit');
 
-      document.getElementById('sewa-qris-area').classList.remove('hidden');
-      document.getElementById('sewa-success-area').classList.add('hidden');
-      
+      currentSewaDepositId = data.depositId || data.id;
+
+      // Tampilkan QR area
+      const qrisArea = document.getElementById('sewa-qris-area');
+      const qrWrap = document.getElementById('sewa-qr-wrap');
+      const qrFallback = document.getElementById('sewa-qr-fallback');
       const qrisImg = document.getElementById('sewa-qris-img');
-      if (data.qrImage) { qrisImg.src = data.qrImage; qrisImg.style.display = ''; }
-      else { qrisImg.style.display = 'none'; }
+
+      qrisArea.classList.remove('hidden');
+
+      // Tampilkan QR kalau ada
+      if (data.qrImage) {
+        qrWrap.classList.remove('hidden');
+        qrFallback.classList.add('hidden');
+        qrisImg.src = data.qrImage;
+      } else {
+        qrWrap.classList.add('hidden');
+        qrFallback.classList.remove('hidden');
+      }
 
       document.getElementById('sewa-total').textContent = 'Rp ' + (data.totalAmount || 0).toLocaleString('id-ID');
-      document.getElementById('sewa-deposit-id').textContent = data.depositId;
+      document.getElementById('sewa-deposit-id').textContent = currentSewaDepositId;
 
-      showToast('Sukses', 'QRIS berhasil dibuat! Silakan scan untuk membayar.', 'success');
+      showToast('Sukses', 'QRIS berhasil dibuat! Silakan scan atau cek status manual.', 'success');
+
       startSewaCountdown(5 * 60);
-      startSewaPolling(data.depositId || data.id);
+      startSewaPolling(currentSewaDepositId);
 
     } catch (err) {
       showToast('Error', err.message, 'error');
+      console.error('[Sewa Error]', err);
     } finally {
       btn.disabled = false;
       btn.innerHTML = originalHTML;
@@ -2132,6 +2157,8 @@ function startSewaCountdown(seconds) {
   if (sewaCountdownInterval) clearInterval(sewaCountdownInterval);
   const el = document.getElementById('sewa-countdown');
   let remaining = seconds;
+  if (el) el.textContent = '05:00';
+  
   sewaCountdownInterval = setInterval(() => {
     remaining--;
     const m = Math.floor(remaining / 60);
@@ -2151,19 +2178,58 @@ function startSewaPolling(depositId) {
   sewaCheckInterval = setInterval(async () => {
     attempts++;
     if (attempts > 30) { clearInterval(sewaCheckInterval); return; }
-    try {
-      const res = await fetch(`/api/sewa-bot?action=check&id=${depositId}`);
-      const data = await res.json();
-      if (data.success && data.status === 'paid') {
-        clearInterval(sewaCheckInterval);
-        clearInterval(sewaCountdownInterval);
-        document.getElementById('sewa-qris-area').classList.add('hidden');
-        document.getElementById('sewa-success-area').classList.remove('hidden');
-        showToast('Sukses', 'Pembayaran berhasil! Bot akan segera join grup.', 'success');
-        document.getElementById('sewa-success-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    } catch (e) { console.error('[Sewa Poll]', e); }
+    await doSewaCheck(depositId, false);
   }, 10000);
+}
+
+// Tombol "Saya Sudah Bayar"
+window.checkSewaStatusManual = async function() {
+  if (!currentSewaDepositId) {
+    showToast('Error', 'Tidak ada transaksi aktif.', 'error');
+    return;
+  }
+  await doSewaCheck(currentSewaDepositId, true);
+};
+
+async function doSewaCheck(depositId, isManual) {
+  if (isManual) {
+    document.getElementById('sewa-checking-area').classList.remove('hidden');
+    document.getElementById('sewa-qris-area').classList.add('hidden');
+  }
+
+  try {
+    const res = await fetch(`/api/sewa-bot?action=check&id=${depositId}`);
+    const data = await res.json();
+    console.log('[Sewa Check]', data);
+
+    if (data.success && (data.status === 'paid' || data.austinStatus === 'paid' || data.austinStatus === 'success')) {
+      clearInterval(sewaCheckInterval);
+      clearInterval(sewaCountdownInterval);
+
+      document.getElementById('sewa-checking-area').classList.add('hidden');
+      document.getElementById('sewa-qris-area').classList.add('hidden');
+      document.getElementById('sewa-success-area').classList.remove('hidden');
+      showToast('Sukses', 'Pembayaran berhasil! Bot akan segera join grup.', 'success');
+      document.getElementById('sewa-success-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return true;
+    }
+
+    if (isManual) {
+      document.getElementById('sewa-checking-area').classList.add('hidden');
+      document.getElementById('sewa-qris-area').classList.remove('hidden');
+      showToast('Info', 'Pembayaran belum terdeteksi. Silakan coba lagi nanti.', 'info');
+    }
+    return false;
+
+  } catch (e) {
+    console.error('[Sewa Check Error]', e);
+    if (isManual) {
+      document.getElementById('sewa-checking-area').classList.add('hidden');
+      document.getElementById('sewa-qris-area').classList.remove('hidden');
+      showToast('Error', 'Gagal cek status. Coba lagi.', 'error');
+    }
+    return false;
+  }
 }
 
 // Init saat page sewa-bot dimuat
