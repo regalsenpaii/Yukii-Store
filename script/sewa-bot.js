@@ -133,21 +133,49 @@ const SEWA_BOT_HTML = `<aside id="sidebar" class="overflow-x-hidden overflow-y-h
           </button>
         </form>
 
+        <!-- QRIS DISPLAY -->
         <div id="sewa-qris-area" class="hidden mt-6 pt-6 border-t border-[var(--border-color)]">
           <div class="text-center">
             <p class="text-xs text-[var(--text-muted)] mb-2">Scan QRIS berikut untuk membayar</p>
-            <div class="inline-block p-3 bg-white rounded-xl border border-[var(--border-color)] shadow-sm">
+            
+            <!-- QR Image -->
+            <div id="sewa-qr-wrap" class="inline-block p-3 bg-white rounded-xl border border-[var(--border-color)] shadow-sm hidden">
               <img id="sewa-qris-img" src="" alt="QRIS" class="w-56 h-auto rounded-lg">
             </div>
+            
+            <!-- Fallback kalau QR tidak ada -->
+            <div id="sewa-qr-fallback" class="hidden text-center p-4 bg-amber-50 rounded-xl border border-amber-100">
+              <i data-lucide="alert-circle" class="w-6 h-6 text-amber-500 mx-auto mb-1"></i>
+              <p class="text-xs text-amber-700 font-medium">QR tidak tersedia otomatis.</p>
+              <p class="text-[10px] text-amber-600 mt-0.5">Silakan cek status manual dengan tombol di bawah.</p>
+            </div>
+
             <div class="mt-3 space-y-1">
               <p class="text-sm font-bold text-[var(--text-primary)]">Total Bayar: <span id="sewa-total" class="text-blue-600">-</span></p>
               <p class="text-[10px] text-[var(--text-muted)]">ID: <span id="sewa-deposit-id" class="font-mono">-</span></p>
             </div>
+            
+            <!-- Countdown -->
             <div class="mt-3 flex items-center justify-center gap-2 text-xs text-amber-600 bg-amber-50 rounded-lg py-2 px-4 border border-amber-100">
               <i data-lucide="clock" class="w-3.5 h-3.5"></i>
               <span>Batas waktu: <span id="sewa-countdown">05:00</span></span>
             </div>
-            <p class="text-[10px] text-[var(--text-muted)] mt-3">Bot akan otomatis bergabung ke grup setelah pembayaran berhasil.</p>
+
+            <!-- TOMBOL SAYA SUDAH BAYAR -->
+            <div class="mt-4">
+              <button id="sewa-check-btn" onclick="checkSewaStatusManual()" class="btn-primary w-full">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i> Saya Sudah Bayar — Cek Status
+              </button>
+              <p class="text-[10px] text-[var(--text-muted)] mt-1.5">Klik tombol di atas setelah kamu membayar.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHECKING STATE -->
+        <div id="sewa-checking-area" class="hidden mt-6 pt-6 border-t border-[var(--border-color)]">
+          <div class="text-center py-4">
+            <svg class="animate-spin w-6 h-6 mx-auto text-blue-500 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2 a10 10 0 0 1 10 10" fill="none"/></svg>
+            <p class="text-sm text-[var(--text-secondary)]">Memeriksa status pembayaran...</p>
           </div>
         </div>
 
