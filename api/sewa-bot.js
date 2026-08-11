@@ -153,6 +153,11 @@ export default async function handler(req, res) {
     const orderId = 'YU-' + Date.now();
     const cleanNomor = nomor.replace(/^0/, '62').replace(/\D/g, '');
 
+    // Ambil domain dari request header atau env
+    const host = req.headers['x-forwarded-host'] || req.headers.host || process.env.VERCEL_URL || 'yukii-store.vercel.app';
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const baseUrl = `${protocol}://${host}`;
+
     const bodyObj = {
       amount: amount,
       method: 'qris',
@@ -160,7 +165,9 @@ export default async function handler(req, res) {
       customer_name: nama,
       customer_email: `${cleanNomor}@yuki.store`,
       customer_phone: cleanNomor,
-      description: `Sewa Bot ${duration} Bulan - ${nama}`
+      description: `Sewa Bot ${duration} Bulan - ${nama}`,
+      callback_url: `${baseUrl}/api/sewa-bot?webhook=austin`,  // ← TAMBAH INI
+      return_url: `${baseUrl}/?page=sewa-bot&payment=success&ref=${orderId}` // ← opsional
     };
 
     const { status, json } = await austinFetchSigned('/api/v2/deposit/create', 'POST', bodyObj);
