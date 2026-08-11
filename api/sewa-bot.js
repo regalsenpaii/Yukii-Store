@@ -17,6 +17,7 @@ function writeDB(db) { memoryDB = db; }
 function verifyBotKey(req) { return req.query.botKey === BOT_POLL_KEY; }
 
 // ─── HMAC SIGNER ───
+// Signature dihitung dari path MURNI (tanpa query string) sesuai docs AustinPay
 function signAustinRequest(method, path, bodyStr) {
   const timestamp = Date.now().toString();
   const payload = `${method.toUpperCase()}\n${path}\n${bodyStr || ''}\n${timestamp}`;
@@ -24,14 +25,15 @@ function signAustinRequest(method, path, bodyStr) {
   return { timestamp, signature };
 }
 
-// ─── FETCH DENGAN HMAC + APIKEY QUERY ───
+// ─── FETCH DENGAN HMAC ───
 async function austinFetchSigned(path, method, bodyObj) {
   const bodyStr = bodyObj ? JSON.stringify(bodyObj) : '';
   const { timestamp, signature } = signAustinRequest(method, path, bodyStr);
-  
-  const url = `${AUSTIN_BASE}${path}?apikey=${AUSTIN_API_KEY}`;
+
+  const url = `${AUSTIN_BASE}${path}`;
   const headers = {
     'Content-Type': 'application/json',
+    'X-API-Key': AUSTIN_API_KEY,
     'X-Timestamp': timestamp,
     'X-Signature': signature
   };
@@ -48,13 +50,13 @@ async function austinFetchSigned(path, method, bodyObj) {
 
   const res = await undiciFetch(url, options);
   const text = await res.text();
-  
+
   console.log(`[Austin] Status: ${res.status}`);
   console.log(`[Austin] Body: ${text.substring(0, 500)}`);
 
   let json = null;
   try { json = JSON.parse(text); } catch {}
-  
+
   return { status: res.status, text, json };
 }
 
@@ -112,17 +114,17 @@ export default async function handler(req, res) {
     const { status, json } = await austinFetchSigned(`/api/v2/deposit/check/${depositId}`, 'GET', null);
 
     if (!json || !json.success) {
-      return res.status(500).json({ 
-        success: false, 
+      return res.status(500).json({
+        success: false,
         message: json?.message || 'Gagal cek status',
         raw: json
       });
     }
 
     const localOrder = db.orders.find(o => o.depositId === depositId || o.id === depositId);
-    const austinStatus = json.data?.status || json.deposit?.status || 'unknown';
-    
-    if (localOrder && (austinStatus === 'paid' || austinStatus === 'success')) {
+    const austinStatus = json.status || json.data?.status || json.deposit?.status || 'unknown';
+
+    if (localOrder && austinStatus === 'paid') {
       localOrder.status = 'paid';
       localOrder.paidAt = Date.now();
       writeDB(db);
@@ -152,23 +154,7 @@ export default async function handler(req, res) {
     const amount = prices[duration] || 10000;
     const orderId = 'YU-' + Date.now();
     const cleanNomor = nomor.replace(/^0/, '62').replace(/\D/g, '');
-
-    // Ambil domain dari request header atau env
-    const host = req.headers['x-forwarded-host'] || req.headers.host || process.env.VERCEL_URL || 'yukii-store.vercel.app';
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const baseUrl = `${protocol}://${host}`;
-
-    const bodyObj = {
-      amount: amount,
-      method: 'qris',
-      merchant_ref: orderId,
-      customer_name: nama,
-      customer_email: `${cleanNomor}@yuki.store`,
-      customer_phone: cleanNomor,
-      description: `Sewa Bot ${duration} Bulan - ${nama}`,
-      callback_url: `${baseUrl}/api/sewa-bot?webhook=austin`,  // ← TAMBAH INI
-      return_url: `${baseUrl}/?page=sewa-bot&payment=success&ref=${orderId}` // ← opsional
-    };
+    const bodyObj = { amount };
 
     const { status, json } = await austinFetchSigned('/api/v2/deposit/create', 'POST', bodyObj);
 
@@ -181,18 +167,11 @@ export default async function handler(req, res) {
       });
     }
 
-    const d = json.data || json.deposit || json;
-    const depositId = d.transaction_id || d.transactionId || d.id || d.reference || orderId;
-    
-    // Parse QR dari semua kemungkinan field
-    let qrImage = d.qr_image || d.qrImage || d.qrUrl || d.qr_url || d.qrCode || d.qr_code || '';
-    let qrString = d.qr_string || d.qrString || d.qrCode || d.qr_code || '';
-    
-    // Cek nested
-    if (!qrImage && d.payment?.qr_image) qrImage = d.payment.qr_image;
-    if (!qrImage && d.payment?.qrImage) qrImage = d.payment.qrImage;
-    if (!qrImage && d.qr?.image) qrImage = d.qr.image;
-    if (!qrImage && d.qr?.url) qrImage = d.qr.url;
+    const d = json.deposit || json.data || json;
+    const depositId = d.transaction_id || d.transactionId || d.id || orderId;
+
+    const qrImage = d.qr_image || '';
+    const qrString = d.qr_string || '';
 
     const order = {
       id: orderId,
@@ -206,8 +185,8 @@ export default async function handler(req, res) {
       depositId,
       qrImage,
       qrString,
-      totalAmount: d.amount || d.totalAmount || amount,
-      expiredAt: d.expired_at || d.expiredAt || Date.now() + (10 * 60 * 1000),
+      totalAmount: d.amount || amount,
+      expiredAt: d.expired_at || Date.now() + (5 * 60 * 1000), // v2 di-cap maks 5 menit
       processedByBot: false,
       createdAt: Date.now()
     };
@@ -243,7 +222,7 @@ export default async function handler(req, res) {
 
     const payload = JSON.parse(rawBody);
     if (event === 'deposit.paid' && payload.data) {
-      const ref = payload.data.merchant_ref || payload.data.transactionId || payload.data.reference;
+      const ref = payload.data.transactionId || payload.data.merchant_ref || payload.data.reference;
       const order = db.orders.find(o => o.depositId === ref || o.id === ref);
       if (order && order.status !== 'paid') {
         order.status = 'paid';
